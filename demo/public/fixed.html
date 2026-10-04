@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- ✅ keyboard: let the on-screen keyboard shrink the layout instead of covering it -->
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>Hedgehog Club sign-up (fixed)</title>
+<style>
+  /* ✅ dark-theme-boxes: tell the browser we have both themes, so form controls follow */
+  :root { color-scheme: light dark; }
+  /* ✅ hundred-vh: dvh follows the real visible height */
+  body { margin: 0; font-family: system-ui, sans-serif; min-height: 100dvh; }
+  @media (prefers-color-scheme: dark) { body { background: #111; color: #eee; } }
+  /* ✅ zoom-200: a maximum, not a fixed width */
+  main { max-width: 900px; padding: 16px; box-sizing: border-box; }
+  label { display: block; margin: 10px 0 4px; }
+  input, textarea { font: inherit; padding: 6px; width: 100%; max-width: 320px; box-sizing: border-box; }
+  /* ✅ keyboard-only: a ring you can see */
+  :focus-visible { outline: 3px solid #4a8cff; outline-offset: 2px; }
+  /* ✅ no endless motion: the badge waves three times on load, and not at all if you asked for less motion */
+  .badge { display: inline-block; animation: pulse 1s 3; }
+  @keyframes pulse { 50% { transform: scale(1.3); } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  /* ✅ one-handed: a real target */
+  .clear { min-width: 32px; min-height: 32px; }
+  /* ✅ clipping: tags wrap instead of losing their ends */
+  .tag { display: inline-block; max-width: 100%; border: 1px solid; overflow-wrap: break-word; }
+  .err { color: #c00; min-height: 1.2em; margin: 2px 0; }
+  @media (prefers-color-scheme: dark) { .err { color: #ff8a8a; } }
+  /* ✅ keyboard: sticky to the bottom of a layout that shrinks with the keyboard */
+  .footer { position: sticky; bottom: 0; background: Canvas; padding: 10px; border-top: 1px solid; }
+  /* ✅ one-handed: the button you press most is the easiest to hit */
+  .footer button { min-height: 40px; min-width: 80px; }
+  #hint { min-height: 1.5em; } /* ✅ layout-shift: the space is reserved before the message arrives */
+</style>
+</head>
+<body>
+<main>
+  <h1>Hedgehog Club <span class="badge">🦔 new!</span></h1>
+
+  <!-- ✅ no auto-advancing: the person moves the tips -->
+  <p id="tip">Tip: hedgehogs like mealworms.</p>
+  <button type="button" id="next-tip">Next tip</button>
+
+  <p>Membership tier: <span class="tag">Hedgehog-approved platinum</span></p>
+
+  <form id="form" novalidate>
+    <p id="hint" aria-live="polite"></p>
+    <label for="name">Name</label>
+    <input id="name" name="name" autocomplete="name">
+    <button type="button" class="clear" aria-label="Clear name" onclick="document.getElementById('name').value=''">×</button>
+
+    <label for="nick">Nickname</label>
+    <input id="nick" name="nick">
+
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" aria-describedby="email-err" autocomplete="email">
+    <p id="email-err" class="err"></p>
+
+    <label for="phone">Phone</label>
+    <input id="phone" name="phone" type="tel" aria-describedby="phone-err" autocomplete="tel">
+    <p id="phone-err" class="err"></p>
+
+    <!-- ✅ url-without-scheme: plain text, a URL keyboard, https:// added on save -->
+    <label for="website">Website</label>
+    <input id="website" name="website" inputmode="url" aria-describedby="website-err">
+    <p id="website-err" class="err"></p>
+
+    <label for="zip">ZIP code</label>
+    <input id="zip" name="zip" inputmode="numeric" autocomplete="postal-code">
+
+    <label for="notes">Notes</label>
+    <textarea id="notes" name="notes" rows="4"></textarea>
+
+    <!-- ✅ slider-only: a number box beside the slider -->
+    <div>
+      <label for="size">Text size (%)</label>
+      <input id="size" type="range" min="80" max="200" value="100" style="width:200px">
+      <input id="size-n" type="number" min="80" max="200" value="100" aria-label="Text size, as a number" style="width:90px">
+    </div>
+
+    <button type="reset">Reset</button>
+    <p class="warn">Deleting cannot be undone.</p>
+    <button type="button" id="delete">Delete my data</button>
+
+    <div class="footer">
+      <button type="submit" id="save">Save</button> <span id="status" role="status"></span>
+    </div>
+  </form>
+</main>
+
+<script>
+  const params = new URLSearchParams(location.search)
+  // ✅ come-back-tomorrow: one stable key, no date in it
+  const key = params.get('profile') ?? 'demo'
+  const $ = (id) => document.getElementById(id)
+  const fields = ['name', 'nick', 'email', 'phone', 'website', 'zip', 'notes']
+  const tips = ['Tip: hedgehogs like mealworms.', 'Tip: never give them milk.', 'Tip: they roll up when scared.']
+  let tip = 0
+  $('next-tip').addEventListener('click', () => { tip = (tip + 1) % tips.length; $('tip').textContent = tips[tip] })
+  $('size').addEventListener('input', () => { $('size-n').value = $('size').value })
+  $('size-n').addEventListener('input', () => { $('size').value = $('size-n').value })
+  $('name').addEventListener('input', () => { $('hint').textContent = $('name').value.trim() ? 'Looks good! 👍' : '' })
+
+  function setError(id, message) {
+    $(id).setAttribute('aria-invalid', message ? 'true' : 'false')
+    $(id + '-err').textContent = message
+  }
+
+  // ✅ phone: accept how people write numbers, refuse what isn't one, and SAY so by the box
+  function checkPhone(raw) {
+    const v = raw.trim()
+    if (!v) return ''
+    const core = v.replace(/\s*(ext\.?|x)\s*\d+$/i, '')
+    if (/[^\d\s().+\-]/.test(core)) return 'That doesn’t look like a phone number. Did an address end up here?'
+    const digits = core.replace(/\D/g, '')
+    return digits.length >= 7 && digits.length <= 15 ? '' : 'A phone number needs 7 to 15 digits.'
+  }
+  const checkEmail = (raw) => (!raw.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.trim()) ? '' : 'That doesn’t look like an email address.')
+  const checkWebsite = (raw) => (!raw.trim() || /^\S+\.\S+$/.test(raw.trim()) ? '' : 'That doesn’t look like a website.')
+
+  async function load() {
+    const data = await (await fetch('/api/load?key=' + encodeURIComponent(key))).json()
+    for (const f of fields) if (typeof data[f] === 'string') $(f).value = data[f]
+  }
+
+  let saving = false
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    if (saving) return // ✅ double-submit: one save at a time
+    const errors = { phone: checkPhone($('phone').value), email: checkEmail($('email').value), website: checkWebsite($('website').value) }
+    for (const [id, msg] of Object.entries(errors)) setError(id, msg)
+    if (Object.values(errors).some(Boolean)) { $('status').textContent = 'Not saved: please check the highlighted box.'; return }
+    saving = true
+    $('save').disabled = true
+    $('status').textContent = 'Saving…'
+    // ✅ strings stay strings (00501 stays 00501), nothing is cut, and JSON is made by JSON.stringify
+    const v = Object.fromEntries(fields.map((f) => [f, $(f).value]))
+    const w = v.website.trim()
+    if (w && !/^[a-z][a-z0-9+.-]*:\/\//i.test(w)) v.website = 'https://' + w
+    try {
+      const r = await fetch('/api/save?key=' + encodeURIComponent(key), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(v) })
+      $('status').textContent = r.ok ? 'Saved ✓' : 'Save failed: ' + (await r.json()).error
+    } catch (err) {
+      $('status').textContent = 'Save failed: the connection dropped. Your typing is still here.'
+    } finally {
+      saving = false
+      $('save').disabled = false
+    }
+  })
+
+  load()
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+{
+  "name": "hedgehog-in-every-box",
+  "version": "0.1.0",
+  "description": "Playwright helpers and a catalogue of ways real people break apps: names, scripts, paste chaos, the address in the phone box, things that move, text that gets cut off, the keyboard covering the box, and accessibility. Every case says why a human does it.",
+  "keywords": [
+    "playwright",
+    "testing",
+    "qa",
+    "accessibility",
+    "a11y",
+    "unicode",
+    "forms",
+    "chaos",
+    "fuzzing",
+    "mobile"
+  ],
+  "license": "MIT",
+  "author": "Ace <ace@sentientsystems.live>",
+  "contributors": [
+    "Ren (Shalia Martin) — breakage catalogue, QA"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/menelly/hedgehog-in-every-box.git"
+  },
+  "homepage": "https://github.com/menelly/hedgehog-in-every-box#readme",
+  "bugs": "https://github.com/menelly/hedgehog-in-every-box/issues",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CATALOGUE.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "demo": "node demo/server.mjs",
+    "test": "playwright test",
+    "catalogue": "node -e \"process.env.UPDATE_CATALOGUE='1';require('child_process').execSync('npx playwright test tests/catalogue.spec.ts',{stdio:'inherit',env:process.env})\"",
+    "prepublishOnly": "npm run build && npm test",
+    "prepare": "tsc -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@axe-core/playwright": ">=4.0.0",
+    "@playwright/test": ">=1.45.0"
+  },
+  "peerDependenciesMeta": {
+    "@axe-core/playwright": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.6.4",
+    "typescript": "~5.9.0"
+  }
+}

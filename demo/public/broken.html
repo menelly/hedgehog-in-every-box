@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- 🐛 hundred-vh / keyboard: no interactive-widget, and the layout below is sized in vh -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hedgehog Club sign-up (BROKEN on purpose)</title>
+<style>
+  /* 🐛 hundred-vh: 100vh is the LARGEST the screen can be; with a keyboard up this runs off the bottom */
+  body { margin: 0; font-family: system-ui, sans-serif; min-height: 100vh; padding-bottom: 80px; }
+  /* 🐛 dark-theme-boxes: the page goes dark, the text boxes stay glaring white (no color-scheme) */
+  @media (prefers-color-scheme: dark) { body { background: #111; color: #eee; } }
+  /* 🐛 zoom-200: a fixed width that can't reflow */
+  main { width: 900px; padding: 16px; }
+  label { display: block; margin: 10px 0 4px; }
+  input, textarea { font: inherit; padding: 6px; width: 320px; }
+  /* 🐛 keyboard-only: focus ring removed, nothing replaces it */
+  *:focus { outline: none; }
+  /* 🐛 reduced-motion-ignored + endless-cycling: pulses forever, reduce-motion or not */
+  .badge { display: inline-block; animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { transform: scale(1.3); } }
+  /* 🐛 one-handed: a 16px target */
+  .clear { width: 16px; height: 16px; padding: 0; font-size: 10px; line-height: 1; }
+  /* 🐛 clipped-text: one line, hidden overflow, no ellipsis, no wrap */
+  .tag { display: inline-block; width: 70px; overflow: hidden; white-space: nowrap; border: 1px solid; }
+  /* 🐛 one-letter-per-line: narrower than its words, and allowed to break anywhere */
+  .narrow { display: inline-block; width: 22px; overflow-wrap: anywhere; vertical-align: top; }
+  /* 🐛 off-screen-box: a "popover" that hangs off the left edge */
+  .nick { position: relative; left: -160px; }
+  /* 🐛 fixed-footer-under-keyboard: glued to the bottom of the layout viewport */
+  .footer { position: fixed; bottom: 0; left: 0; right: 0; background: #ccc; padding: 10px; }
+  .tips { overflow: hidden; width: 300px; white-space: nowrap; }
+  .strip { display: inline-block; }
+  .tip { display: inline-block; width: 300px; }
+  #banner { background: gold; padding: 20px; }
+</style>
+</head>
+<body>
+<div id="banner-slot"></div>
+<main>
+  <h1>Hedgehog Club <span class="badge">🦔 new!</span></h1>
+
+  <!-- 🐛 endless-cycling: a carousel that advances on its own -->
+  <div class="tips"><div class="strip" id="strip"><span class="tip">Tip: hedgehogs like mealworms.</span><span class="tip">Tip: never give them milk.</span><span class="tip">Tip: they roll up when scared.</span></div></div>
+
+  <p>Membership tier: <span class="tag">Hedgehog-approved platinum</span> <span class="narrow">Hedgehogs</span></p>
+
+  <form id="form">
+    <div id="hint-slot"></div>
+    <label for="name">Name</label>
+    <!-- 🐛 one-handed: the tiny × is glued to the box, so a thumb hits one or the other -->
+    <input id="name" name="name"><button type="button" class="clear" onclick="document.getElementById('name').value=''">×</button>
+
+    <div class="nick">
+      <label for="nick">Nickname</label>
+      <input id="nick" name="nick">
+    </div>
+
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email">
+
+    <label for="phone">Phone</label>
+    <input id="phone" name="phone" type="tel">
+
+    <!-- 🐛 url-without-scheme: type="url" rejects www.example.com, and the browser blocks the WHOLE form -->
+    <label for="website">Website</label>
+    <input id="website" name="website" type="url">
+
+    <label for="zip">ZIP code</label>
+    <input id="zip" name="zip" inputmode="numeric">
+
+    <!-- 🐛 labels: placeholder only, no label -->
+    <textarea id="notes" name="notes" placeholder="Notes" rows="4"></textarea>
+
+    <!-- 🐛 slider-only: you can only drag it -->
+    <label for="size">Text size</label>
+    <input id="size" type="range" min="80" max="200" value="100">
+
+    <!-- 🐛 keyboard-only: a div that only a mouse can press -->
+    <div onclick="document.getElementById('form').reset()" style="cursor:pointer; display:inline-block; padding:8px; border:1px solid">Reset</div>
+    <button type="button" id="delete">Delete my data</button>
+
+    <div class="footer">
+      <button type="submit" id="save">Save</button> <span id="status"></span>
+    </div>
+  </form>
+</main>
+
+<script>
+  const params = new URLSearchParams(location.search)
+  const profile = params.get('profile') ?? 'demo'
+  // 🐛 come-back-tomorrow: data is stored under TODAY's date, so tomorrow it's gone
+  const key = profile + ':' + new Date().toISOString().slice(0, 10)
+  const $ = (id) => document.getElementById(id)
+  const fields = ['name', 'nick', 'email', 'phone', 'website', 'zip', 'notes']
+
+  // 🐛 layout-shift: a promo "image" with no reserved size arrives after load and shoves everything down
+  setTimeout(() => { $('banner-slot').innerHTML = '<div id="banner" style="height:200px">🎉 New! Hedgehogs now supported.</div>' }, 300)
+
+  // 🐛 endless-cycling: advances by itself every 1.2s, forever
+  let tip = 0
+  setInterval(() => { tip = (tip + 1) % 3; $('strip').style.transform = `translateX(${-300 * tip}px)` }, 1200)
+
+  // 🐛 hedgehog / zwj-emoji: a "fun" avatar id made with btoa(), which throws on anything outside Latin-1
+  // 🐛 layout-shift (after typing): a message appears ABOVE the form and pushes it down
+  $('name').addEventListener('input', () => {
+    if (!$('hint-slot').textContent) $('hint-slot').innerHTML = '<p style="height:180px;background:#dfd">Looks good! 👍</p>'
+    window.avatarId = btoa($('name').value)
+  })
+
+  // 🐛 moves-under-the-pointer: pressing Delete inserts a warning above it, so the button jumps away
+  $('delete').addEventListener('pointerdown', () => {
+    if (!$('delete').previousElementSibling?.classList.contains('warn')) $('delete').insertAdjacentHTML('beforebegin', '<p class="warn">Are you sure? This cannot be undone.</p>')
+  })
+
+  async function load() {
+    const data = await (await fetch('/api/load?key=' + encodeURIComponent(key))).json()
+    // 🐛 leading-zeros: the ZIP came back as a number
+    for (const f of fields) if (data[f] !== undefined) $(f).value = data[f]
+  }
+
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const phone = $('phone').value
+    // 🐛 address-in-phone + native-dialogs: refuses with alert(), which some app shells never show
+    // 🐛 phone-human-formats: demands exactly ten bare digits
+    if (phone && /[a-z]/i.test(phone)) return alert('Phone numbers cannot have letters')
+    if (phone && !/^\d{10}$/.test(phone)) return alert('Phone must be 10 digits')
+    // 🐛 double-submit: the button stays live while saving
+    $('status').textContent = 'Saving…'
+    const v = Object.fromEntries(fields.map((f) => [f, $(f).value]))
+    // 🐛 quotes-and-backslash-n / windows-path: JSON glued together by hand
+    // 🐛 leading-zeros: ZIP stored as a number
+    // 🐛 long-paste: notes silently cut to 1,000 characters
+    const body = '{"name":"' + v.name + '","nick":"' + v.nick + '","email":"' + v.email + '","phone":"' + v.phone +
+      '","website":"' + v.website + '","zip":' + (Number(v.zip) || 0) + ',"notes":"' + v.notes.slice(0, 1000).replace(/\n/g, '\\n') + '"}'
+    const r = await fetch('/api/save?key=' + encodeURIComponent(key), { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+    if (r.ok) $('status').textContent = 'Saved ✓'
+    else { $('status').textContent = 'Save failed'; console.error('save failed', await r.text()) }
+  })
+
+  load()
+</script>
+</body>
+</html>
