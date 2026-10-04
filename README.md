@@ -14,16 +14,26 @@ This package is that habit, written down so anyone can run it: a **catalogue** o
 
 It doesn't replace a person opening your app and pressing all the buttons. Nothing does. It means the hedgehog gets in the boxes even on the days nobody has the energy to do it by hand.
 
+## The philosophy, in Ren's words
+
+From a thread on r/AskVibecoders, where someone insisted that unit and CI tests would catch everything:
+
+> *"Open the app, and test it. Like a real human will. Punch the buttons. Add a hedgehog to the text box. Hit the escape key and back button at the same time. Try to delete something and change your mind. Be chaos… So the order is: agent tests and gets a stack of green check marks, then you open the thing and remind the software industry why QA was still important."*
+
+Ren's example from the same thread: one page showed three numbers that were supposed to agree, and they didn't. Every unit test was green, because each number correctly read *its own* column. Only a person looking at the screen could see that three different answers to one question is confusing.
+
+**You can't write the test until a human has seen what "correct" looks like.** So this package works in that order: a person finds it, and then it becomes a test so nobody has to find it twice. That's why every case carries its provenance.
+
 ## Every case says where it came from
 
-The catalogue has **69 cases**, and each one is labelled honestly:
+The catalogue has **72 cases**, and each one is labelled honestly:
 
 | label | count | meaning |
 |---|---|---|
 | 🧾 **incident** | 15 | It broke one of our real apps. The entry names the app and the month. |
 | 🦔 **Ren's list** | 9 | On the list of things Ren types into every box. No single recorded incident: a habit that keeps finding things. |
 | 🌐 **widespread** | 2 | Ren hits it across many apps, not one of ours. |
-| 💬 **community** | 3 | Suggested by someone replying to Ren's post about this habit. Good idea, no incident on file. |
+| 💬 **community** | 6 | A commenter on r/AskVibecoders, replying to Ren. Good idea, no incident on file. |
 | 📘 **generic** | 40 | Plain best practice (often a WCAG criterion), labelled so nobody mistakes it for a war story. |
 
 The full list, with every "why" and every receipt: **[CATALOGUE.md](CATALOGUE.md)**.
@@ -124,7 +134,7 @@ For a test that is only about one category, skip it visibly: `test.skip(!h.appli
 |---|---|
 | `walkEveryTextbox(page, opts)` | Every visible text box gets every text case. No crash, no console error, no browser pop-up, no broken JSON reply; the box holds what went in (allowing for what browsers do on purpose, like dropping newlines in one-line boxes); the box is fully on screen. With `roundTrip`, it saves, reloads, and checks every free-text box gives back exactly what was saved. |
 | `fieldMixup(page, opts)` | The wrong thing in the wrong box. Things that should be refused must be refused **with a visible message tied to the box** (not silently, not with a bare `alert()`); normal human formats like `(555) 123-4567` and `www.example.com` must be accepted. |
-| `doubleSubmit(page, opts)` | One double-click on submit sends one request. |
+| `doubleSubmit(page, opts)` | One double-click on submit sends one request. With `clicks: 10`, someone smashing the login button. |
 | `comeBackTomorrow(page, opts)` | Something saved today is still there tomorrow (moves the page's clock a day forward). |
 | `survivesReload(page, opts)` | Work in progress survives a refresh, or is offered back. |
 | `roundTripValue(page, opts)` | One value saved and read back exactly. `00501` stays `00501`. |
@@ -207,7 +217,7 @@ Add it to `src/catalogue.ts` with a `why` a person would recognise, the `check` 
 
 - **Ren (Shalia Martin)**: the breakage catalogue, the hedgehog habit, and twenty-some years of knowing that the person most likely to find your bug is the one your app wasn't designed for.
 - **Ace (Claude, Anthropic)**: the helpers, the demo, the tests, and this README.
-- The commenters on Ren's post who added double-submits, card numbers in the search box, and editing data files behind the app's back.
+- The commenter on r/AskVibecoders who added double-submits, smashing the login button, card numbers in the wrong box, saving files in odd places, and editing data files behind the app's back.
 
 ## License
 

@@ -116,6 +116,16 @@ test('👆 double submit: broken sends two, fixed sends one', async ({ page }) =
   expect(good.passed).toBe(1)
 })
 
+test('👆 button mash: ten fast clicks — broken sends many, fixed sends one', async ({ page }) => {
+  await page.goto(`/broken.html?profile=${profile()}`)
+  const bad = await web.doubleSubmit(page, { submit: '#save', request: '/api/save', clicks: 10, throwOnFindings: false })
+  expect(bad.findings[0].caseId).toBe('button-mash')
+  expect(bad.findings[0].human).toMatch(/^10 fast clicks on submit sent \d+ requests\. When login is slow/)
+  await page.goto(`/fixed.html?profile=${profile()}`)
+  const good = await web.doubleSubmit(page, { submit: '#save', request: '/api/save', clicks: 10 })
+  expect(good.passed).toBe(1)
+})
+
 for (const which of ['broken', 'fixed'] as const) {
   test(`📅 come back tomorrow: ${which === 'broken' ? 'CATCHES the date-keyed save' : 'PASSES the stable key'}`, async ({ page }) => {
     const r = await web.comeBackTomorrow(page, {

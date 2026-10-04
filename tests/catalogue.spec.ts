@@ -64,7 +64,7 @@ export function renderCatalogue(): string {
     `- ${SOURCE_WORDS.incident}: **${count('incident')}**. It broke one of our real apps; the entry names the app and the month.`,
     `- ${SOURCE_WORDS['rens-list']}: **${count('rens-list')}**. On the list of things Ren types into every box by hand. No single recorded incident.`,
     `- ${SOURCE_WORDS.widespread}: **${count('widespread')}**. Ren hits it across many apps, not one of ours.`,
-    `- ${SOURCE_WORDS.community}: **${count('community')}**. Suggested by someone replying to Ren's post. Good idea, no incident on file.`,
+    `- ${SOURCE_WORDS.community}: **${count('community')}**. A commenter on r/AskVibecoders, replying to Ren. Good idea, no incident on file.`,
     `- ${SOURCE_WORDS.generic}: **${count('generic')}**. Plain best practice, labelled so nobody mistakes it for a war story.`,
     '',
   ]

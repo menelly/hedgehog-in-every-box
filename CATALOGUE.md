@@ -2,12 +2,12 @@
 
 *Generated from `src/catalogue.ts` by `npm run catalogue`. Edit the source, not this file.*
 
-**69 cases.** Where each one came from:
+**72 cases.** Where each one came from:
 
 - 🧾 incident: **15**. It broke one of our real apps; the entry names the app and the month.
 - 🦔 Ren's list: **9**. On the list of things Ren types into every box by hand. No single recorded incident.
 - 🌐 widespread: **2**. Ren hits it across many apps, not one of ours.
-- 💬 community: **3**. Suggested by someone replying to Ren's post. Good idea, no incident on file.
+- 💬 community: **6**. A commenter on r/AskVibecoders, replying to Ren. Good idea, no incident on file.
 - 📘 generic: **40**. Plain best practice, labelled so nobody mistakes it for a war story.
 
 ## 🧑 Names
@@ -315,7 +315,14 @@
 - **Input:** `4111 1111 1111 1111` into the **search** box, and a good app should **accept** it
 - **Why a real person does this:** People paste the wrong thing from the clipboard. Search must cope, and must not log or echo it anywhere it shouldn't.
 - **How it's checked:** fieldMixup (expect accept), then check your logs and analytics for the string
-- **Where we learned it:** 💬 community. Suggested by a commenter on Ren's post about this habit (Sept 2026): sensitive-shaped junk in the wrong field.
+- **Where we learned it:** 💬 community. A commenter on r/AskVibecoders, replying to Ren (Sept 2026): sensitive-shaped junk in the wrong field.
+
+### a card number in the address box `card-number-in-address`
+
+- **Input:** `4111 1111 1111 1111` into the **address** box, and a good app should **reject** it
+- **Why a real person does this:** Checkout pages put the card and the address side by side, and autofill or a pasted clipboard drops the card number in the wrong one. If it saves, a card number now lives in a field nobody protects: it gets printed on labels, emailed in receipts and logged in plain text.
+- **How it's checked:** fieldMixup (expect reject), then check that the string never shows up in your logs, emails or analytics
+- **Where we learned it:** 💬 community. A commenter on r/AskVibecoders, replying to Ren (Sept 2026).
 
 ### a website typed the way people type websites `url-without-scheme`
 
@@ -347,7 +354,22 @@
 - **Input:** *(an action)*
 - **Why a real person does this:** Tremor, a sticky mouse, a slow network and a person who thinks the first click didn't take. Two clicks must not make two records or two charges.
 - **How it's checked:** doubleSubmit(page, { submit, request }): counts the requests one double-click sends
-- **Where we learned it:** 💬 community. Suggested by a commenter on Ren's post (Sept 2026): rapid-fire the same button.
+- **Where we learned it:** 💬 community. A commenter on r/AskVibecoders, replying to Ren (Sept 2026): rapid-fire the same button.
+
+### smashing the login button `button-mash`
+
+- **Input:** *(an action)*
+- **Why a real person does this:** When login is slow, people press it again, and again, and again. Ten presses must not mean ten sessions, ten "new device" emails, or a locked account, and if there IS a rate limit, the person should be told in words, not shown a spinner forever.
+- **How it's checked:** doubleSubmit(page, { submit, request, clicks: 10 }): ten fast clicks, count the requests; then read what the screen says
+- **Where we learned it:** 💬 community. A commenter on r/AskVibecoders, replying to Ren (Sept 2026): smash the login button many times in a row.
+
+### saving the data file somewhere odd `wrong-save-location`
+
+- **Input:** *(an action)*
+- **Why a real person does this:** People save into a synced cloud folder, a USB stick they later unplug, a read-only folder, or straight onto the Desktop and then tidy it away. The app should say clearly where its data is, and cope (or complain in words) when it moves or vanishes.
+- **How it's checked:** manual for now: point the save or export at a read-only folder, a removable drive, and a synced folder; then move the file and reopen the app
+- **Applies to:** desktop-shell, react-native
+- **Where we learned it:** 💬 community. A commenter on r/AskVibecoders, replying to Ren (Sept 2026): save data files in the wrong place.
 
 ### refresh (or crash) in the middle of the work `refresh-mid-work`
 
@@ -383,7 +405,7 @@
 - **Input:** *(an action)*
 - **Why a real person does this:** Sync tools, disk errors, a person hand-editing a file. The app should refuse loudly and point at a backup, not load garbage or a blank screen.
 - **How it's checked:** write junk into localStorage/IndexedDB (or a copy of the data file), reload, expect a readable error
-- **Where we learned it:** 💬 community. Suggested by a commenter on Ren's post (Sept 2026): modify the data files outside the app.
+- **Where we learned it:** 💬 community. A commenter on r/AskVibecoders, replying to Ren (Sept 2026): modify the app's data files from outside the app, then see what it does.
 
 ## 🌀 Things that move that shouldn't
 

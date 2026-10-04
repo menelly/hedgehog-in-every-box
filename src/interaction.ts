@@ -19,8 +19,10 @@ export interface DoubleSubmitOptions extends CommonOptions {
   request: string | RegExp | ((r: Request) => boolean)
   /** fill the form first */
   fillValid?: (page: Page) => Promise<void>
-  /** how long to keep counting after the double-click (default 1500ms) */
+  /** how long to keep counting after the clicks (default 1500ms) */
   settleMs?: number
+  /** how many clicks: 2 (default) is a double-click; more is someone smashing the button */
+  clicks?: number
 }
 
 export async function doubleSubmit(page: Page, opts: DoubleSubmitOptions): Promise<Report> {
@@ -34,7 +36,15 @@ export async function doubleSubmit(page: Page, opts: DoubleSubmitOptions): Promi
   await opts.fillValid?.(page)
   page.on('request', count)
   const button = typeof opts.submit === 'string' ? page.locator(opts.submit) : opts.submit
-  await button.dblclick()
+  const clicks = opts.clicks ?? 2
+  const caseId = clicks > 2 ? 'button-mash' : 'double-submit'
+  const what = clicks > 2 ? `${clicks} fast clicks` : 'one double-click'
+  if (clicks === 2) await button.dblclick()
+  else {
+    // as fast as a frustrated hand: no waiting between presses, and keep pressing even once it's disabled
+    const box = await button.boundingBox()
+    if (box) for (let i = 0; i < clicks; i++) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+  }
   await page.waitForTimeout(opts.settleMs ?? 1500)
   page.off('request', count)
   if (n === 1) report.passed++
@@ -42,17 +52,17 @@ export async function doubleSubmit(page: Page, opts: DoubleSubmitOptions): Promi
     report.findings.push({
       check: 'doubleSubmit',
       where: 'submit',
-      caseId: 'double-submit',
+      caseId,
       what: 'no matching request seen',
-      human: 'A double-click on submit sent nothing at all, so this check could not tell whether two clicks make two records. Check the `request` matcher, or the form refused to submit.',
+      human: `${what[0].toUpperCase() + what.slice(1)} on submit sent nothing at all, so this check could not tell whether repeated clicks make repeated records. Check the \`request\` matcher, or the form refused to submit.`,
     })
   else
     report.findings.push({
       check: 'doubleSubmit',
       where: 'submit',
-      caseId: 'double-submit',
-      what: `${n} requests from one double-click`,
-      human: `One double-click on submit sent ${n} requests. ${why('double-submit')} Disable the button while saving, or ignore repeats.`,
+      caseId,
+      what: `${n} requests from ${what}`,
+      human: `${what[0].toUpperCase() + what.slice(1)} on submit sent ${n} requests. ${why(caseId)} Disable the button while saving, or ignore repeats.`,
     })
   return finish(report, opts)
 }
