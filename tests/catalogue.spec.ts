@@ -27,6 +27,7 @@ const SOURCE_WORDS = {
   incident: '🧾 incident',
   'rens-list': "🦔 Ren's list",
   widespread: '🌐 widespread',
+  advocacy: "🗣️ Ren's advocacy",
   community: '💬 community',
   generic: '📘 generic',
 } as const
@@ -64,6 +65,7 @@ export function renderCatalogue(): string {
     `- ${SOURCE_WORDS.incident}: **${count('incident')}**. It broke one of our real apps; the entry names the app and the month.`,
     `- ${SOURCE_WORDS['rens-list']}: **${count('rens-list')}**. On the list of things Ren types into every box by hand. No single recorded incident.`,
     `- ${SOURCE_WORDS.widespread}: **${count('widespread')}**. Ren hits it across many apps, not one of ours.`,
+    `- ${SOURCE_WORDS.advocacy}: **${count('advocacy')}**. Ren named it from decades of disability-rights work, answering someone who left it out. Not an incident in our apps: a person telling you who your app forgot.`,
     `- ${SOURCE_WORDS.community}: **${count('community')}**. A commenter on r/AskVibecoders, replying to Ren. Good idea, no incident on file.`,
     `- ${SOURCE_WORDS.generic}: **${count('generic')}**. Plain best practice, labelled so nobody mistakes it for a war story.`,
     '',

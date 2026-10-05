@@ -26,13 +26,14 @@ Ren's example from the same thread: one page showed three numbers that were supp
 
 ## Every case says where it came from
 
-The catalogue has **72 cases**, and each one is labelled honestly:
+The catalogue has **76 cases**, and each one is labelled honestly:
 
 | label | count | meaning |
 |---|---|---|
 | 🧾 **incident** | 15 | It broke one of our real apps. The entry names the app and the month. |
 | 🦔 **Ren's list** | 9 | On the list of things Ren types into every box. No single recorded incident: a habit that keeps finding things. |
 | 🌐 **widespread** | 2 | Ren hits it across many apps, not one of ours. |
+| 🗣️ **Ren's advocacy** | 4 | Ren named it from decades of disability-rights work, answering someone who'd left it out. Not an incident in our apps: a person telling you who your app forgot. |
 | 💬 **community** | 6 | A commenter on r/AskVibecoders, replying to Ren. Good idea, no incident on file. |
 | 📘 **generic** | 40 | Plain best practice (often a WCAG criterion), labelled so nobody mistakes it for a war story. |
 
@@ -108,6 +109,7 @@ Every helper collects **all** its findings before failing, so one run tells you 
 | ✂️ Text cut off | ✅ | ✅ | ✅ *(proxy)* | ✅ |
 | 📱 The keyboard covers the box | ➖ | ✅ | ✅ *(proxy)* | ➖ |
 | ♿ Accessibility | ✅ | ✅ | ✅ | ✅ |
+| ↳ contrast, titles, pictures, dictation | ✅ | ✅ | ➖ *(manual)* | ✅ |
 
 - **`web-desktop`**: a site or web app used with a mouse on a big screen.
 - **`web-mobile`**: responsive sites and PWAs on phones. Run these with a phone device, e.g. `test.use({ ...devices['Pixel 7'] })`.
@@ -141,7 +143,8 @@ For a test that is only about one category, skip it visibly: `test.skip(!h.appli
 | `motionCheck(page, opts)` | Things that move that shouldn't (below). |
 | `clippingCheck(page, opts)` | Text that gets cut off (below). |
 | `keyboardCheck(page, opts)` | The on-screen keyboard covering the box (below). |
-| `a11ySmoke(page, opts)` | Accessible names, Tab reaches everything with a visible focus ring, 24px targets (or spaced so they can't be mis-hit, per WCAG 2.5.8), no drag-only sliders, reflow at 200% zoom and phone width, no white boxes on a dark theme, and axe if you have it. |
+| `a11ySmoke(page, opts)` | Accessible names, Tab reaches everything with a visible focus ring, 24px targets (or spaced so they can't be mis-hit, per WCAG 2.5.8), no drag-only sliders, reflow at 200% zoom and phone width, no white boxes on a dark theme, text contrast (axe's color-contrast rule, every failing piece of text listed with its colours and ratio), a way out of Mr/Mrs, pictures that say what they are, and the rest of axe if you have it. |
+| `dictationCheck(page, opts)` | Speech-to-text into every free-text box: a whole phrase at once, a word corrected mid-sentence, a second phrase joined on. The box must keep exactly what was said. |
 | `FlinchWatcher` | The listener the others share: console errors, uncaught errors, native dialogs, and responses that claim to be JSON and don't parse. |
 | `CATALOGUE` | Every case, as data, if you'd rather write your own loop. |
 
@@ -187,6 +190,16 @@ For each text box it checks that the box, and its submit button when that sits r
 
 **♿ Accessibility.** This is where Ren's perspective is unique, and where an app most often locks someone out completely rather than just annoying them. Keyboard-only users (switch users, screen-reader users, people whose hands hurt today) need Tab to reach everything and need to *see* where focus is. One-handed users (a baby on one arm, a cane, a cast, a tremor) need targets big enough to hit. Fine-motor dragging is the hardest thing on a screen, so a slider needs a number box beside it (one of our apps, built *for* disabled sellers, had a drag-only setting). Low-vision users zoom to 200%. Dark themes are an accessibility setting for many people, and a glaring white text box on one is unreadable (a real one of ours again). `a11ySmoke` is a smoke test, not an audit: passing it means nobody is locked out by the obvious things. It doesn't mean the app is accessible. Ask disabled people. Pay them.
 
+**🗣️ The questions accessibility should have asked.** On r/vibecoding, someone shared a giant "audit your app" prompt in which accessibility got **one line**. Ren answered with the questions it should have asked. Four of them are checks now, and one can only be a person's job:
+
+- **🎨 Can you see the words?** `a11ySmoke` runs axe's `color-contrast` rule on its own (WCAG 2 AA: 4.5:1, 3:1 for large text) and lists every piece of text that fails, with its colours and ratio. Text axe can't judge (over a picture or a gradient) is listed for you to check by eye, not hidden. Needs `@axe-core/playwright`.
+- **🎩 Is there a way out of Mr and Mrs?** In Ren's words: *"a way to opt out of distressing or dysphoria-causing unnecessary social constructs like Mr or ma'am."* Any title, salutation or honorific field (a dropdown, a set of buttons or a box) must be optional, offer a blank or "prefer not to say" that can actually be chosen (a disabled "Choose…" doesn't count), and include **Mx**. Pages with no title field skip this, which is the best answer of all.
+- **🎙️ Does it work if you can't type?** People with pain, tremor, RSI, fatigue or a cast dictate. Speech-to-text drops in a whole phrase at once, swaps a word mid-sentence when corrected, capitalises oddly and leaves a trailing space for the next phrase. `dictationCheck` does exactly that in every free-text box and checks nothing was eaten. The app must not punish people who can't type.
+- **🖼️ Do the pictures say what they are?** Every `<img>` is either marked decorative (`alt=""` or `role="presentation"`) or has alt text that isn't empty, isn't its file name, and isn't just "image".
+- **🧠 Cognitive load is a person's job.** No script can tell you whether a screen asks too much of a tired, foggy, overloaded brain. Ren put it on the list, and it goes on yours as a human check: open each screen and ask how many decisions it asks for at once, whether it says what happens next in plain words, whether anything is timed or rushed, and whether someone who loses their place halfway through can pick it back up. Better: ask someone with brain fog, ADHD, a brain injury or a migraine today to try it, and pay them.
+
+These apply to websites and to Tauri/Electron apps (a web page in a native window). A web check can't see a native React Native screen, so that profile skips them with a reason and gets the items in the manual checklist below.
+
 ## Manual checklist for React Native / Expo and desktop shells
 
 The web proxy can't see these. A person with a device can, in ten minutes:
@@ -197,6 +210,10 @@ The web proxy can't see these. A person with a device can, in ten minutes:
 - [ ] Turn on **TalkBack / VoiceOver**. Does every button and box say what it is?
 - [ ] Try **delete** and anything else that asks "are you sure?". Does the question actually appear? (`window.confirm` is swallowed by some Android WebViews, including the one inside a Tauri app.)
 - [ ] Put a **🦔** in every box, then close and reopen the app. Is it still there?
+- [ ] **Dictate** into every text box with the phone's speech-to-text, then correct one word by voice. Did everything you said stay?
+- [ ] Turn on **Color correction / Color filters** (greyscale) and **High contrast text**. Can you still read every label and tell every state apart?
+- [ ] Find any **title / Mr / Mrs** field. Can you skip it, and is Mx there?
+- [ ] Go through every screen **tired**. Too many choices at once? Anything on a timer? Could you find your place again after a phone call?
 
 ## Run the proof yourself
 
@@ -215,7 +232,7 @@ Add it to `src/catalogue.ts` with a `why` a person would recognise, the `check` 
 
 ## Credits
 
-- **Ren (Shalia Martin)**: the breakage catalogue, the hedgehog habit, and twenty-some years of knowing that the person most likely to find your bug is the one your app wasn't designed for.
+- **Ren (Shalia Martin)**: the breakage catalogue, the hedgehog habit, the questions accessibility should have asked (contrast, a way out of Mr and Mrs, dictation, pictures, cognitive load), and twenty-some years of knowing that the person most likely to find your bug is the one your app wasn't designed for.
 - **Ace (Claude, Anthropic)**: the helpers, the demo, the tests, and this README.
 - The commenter on r/AskVibecoders who added double-submits, smashing the login button, card numbers in the wrong box, saving files in odd places, and editing data files behind the app's back.
 

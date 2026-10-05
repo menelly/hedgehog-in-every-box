@@ -11,6 +11,10 @@
  *                      hand. We don't have a single recorded incident for it;
  *                      it's a habit that keeps finding things.
  *       'widespread' → Ren hits it across many apps, not one of ours.
+ *       'advocacy'   → Ren named it from decades of disability-rights work,
+ *                      usually in public, answering someone who'd left it
+ *                      out. Not an incident in our apps: a person telling you
+ *                      who your app forgot.
  *       'community'  → suggested by someone replying to Ren's post about this
  *                      habit. Good idea, no incident on file.
  *       'generic'    → plain best practice (often a WCAG criterion). Labelled
@@ -35,6 +39,7 @@ export type Provenance =
   | { source: 'incident'; app: string; when: string; what: string; foundBy: string }
   | { source: 'rens-list'; note?: string }
   | { source: 'widespread'; note: string }
+  | { source: 'advocacy'; note: string }
   | { source: 'community'; note: string }
   | { source: 'generic'; note?: string }
 
@@ -875,6 +880,45 @@ export const CATALOGUE: Case[] = [
       what: 'On dark themes, the browser\'s own autofill painted a text box pale white. Fixed by switching off redundant autofill on that box (the app has its own picker) and setting the colour scheme.',
       foundBy: 'Ren, using it',
     },
+  },
+  // ── 🗣️ the questions accessibility should have asked (Ren, r/vibecoding) ──
+  // Someone posted a giant "audit your app" prompt where accessibility got ONE
+  // line. Ren answered with the questions it should have asked. These are those.
+  {
+    id: 'color-contrast',
+    kind: 'accessibility',
+    title: 'text you can actually see against its background',
+    why: 'Pale grey on white looks elegant on the designer\'s monitor and vanishes for low vision, cataracts, colour-blindness, a cheap screen, or a phone in the sun. If the text isn\'t readable, it isn\'t there.',
+    check: 'a11ySmoke runs axe\'s color-contrast rule only (WCAG 2 AA: 4.5:1, or 3:1 for large text) and lists every failing piece of text with its colours and ratio',
+    platforms: ['web-desktop', 'web-mobile', 'desktop-shell'],
+    provenance: { source: 'advocacy', note: "Ren's answer to an audit prompt on r/vibecoding (2026) that gave accessibility one line. WCAG 1.4.3 Contrast (Minimum)." },
+  },
+  {
+    id: 'honorific-opt-out',
+    kind: 'accessibility',
+    title: 'a way out of Mr and Mrs',
+    why: 'A required title box makes people pick a social category that may be wrong, painful, or none of the app\'s business. In Ren\'s words, apps need "a way to opt out of distressing or dysphoria-causing unnecessary social constructs like Mr or ma\'am." Optional, with a blank or "prefer not to say", and Mx for anyone who wants a title that isn\'t gendered.',
+    check: 'a11ySmoke finds title/salutation/honorific fields (select, radio group or box); each must be optional, offer a blank or "prefer not to say" a person can actually choose, and include Mx or an equivalent. Skipped when there is no such field',
+    platforms: ['web-desktop', 'web-mobile', 'desktop-shell'],
+    provenance: { source: 'advocacy', note: "Ren's answer to an audit prompt on r/vibecoding (2026) that gave accessibility one line." },
+  },
+  {
+    id: 'dictation',
+    kind: 'accessibility',
+    title: 'speech-to-text, not typing',
+    why: 'People who can\'t type (pain, tremor, RSI, a cast, a switch, fatigue) dictate, and dictation drops whole phrases in at once, replaces a word mid-sentence when corrected, capitalises oddly and leaves a trailing space. An input handler that only ever met a keyboard eats it, and the app punishes the people who can\'t type.',
+    check: 'dictationCheck: in every free-text box, a whole phrase at once, then the middle word replaced, then a second phrase joined on, then leave the box; the box must keep exactly what was said (trimming the outer spaces on leaving is fine)',
+    platforms: ['web-desktop', 'web-mobile', 'desktop-shell'],
+    provenance: { source: 'advocacy', note: "Ren's answer to an audit prompt on r/vibecoding (2026) that gave accessibility one line." },
+  },
+  {
+    id: 'image-alt',
+    kind: 'accessibility',
+    title: 'pictures that say what they are',
+    why: 'A screen reader reads a picture\'s alt text, and with none it reads the file name: "IMG underscore 2 0 4 1 dot jpeg". Decorative pictures should say nothing (alt=""), and every other picture should say what it shows.',
+    check: 'a11ySmoke: every <img> is either marked decorative (alt="" or role="presentation"/"none") or has alt text that isn\'t empty, isn\'t the file name, and isn\'t just "image"',
+    platforms: ['web-desktop', 'web-mobile', 'desktop-shell'],
+    provenance: { source: 'advocacy', note: "Ren's answer to an audit prompt on r/vibecoding (2026) that gave accessibility one line. WCAG 1.1.1 Non-text Content." },
   },
   {
     id: 'errors-announced',

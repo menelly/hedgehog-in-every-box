@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 const PORT = Number(process.env.HEDGEHOG_DEMO_PORT ?? 4790)
 const PUBLIC = fileURLToPath(new URL('./public/', import.meta.url))
 const store = new Map() // key → saved object
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' }
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' }
 
 const json = (res, status, body) => {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })

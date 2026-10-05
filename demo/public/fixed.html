@@ -14,7 +14,10 @@
   /* ✅ zoom-200: a maximum, not a fixed width */
   main { max-width: 900px; padding: 16px; box-sizing: border-box; }
   label { display: block; margin: 10px 0 4px; }
-  input, textarea { font: inherit; padding: 6px; width: 100%; max-width: 320px; box-sizing: border-box; }
+  input, textarea, select { font: inherit; padding: 6px; width: 100%; max-width: 320px; box-sizing: border-box; }
+  /* ✅ color-contrast: small print you can still read (7:1 on white, and light on the dark theme) */
+  .fine-print { color: #555; }
+  @media (prefers-color-scheme: dark) { .fine-print { color: #bbb; } }
   /* ✅ keyboard-only: a ring you can see */
   :focus-visible { outline: 3px solid #4a8cff; outline-offset: 2px; }
   /* ✅ no endless motion: the badge waves three times on load, and not at all if you asked for less motion */
@@ -36,7 +39,11 @@
 </head>
 <body>
 <main>
+  <!-- ✅ image-alt: says what the picture shows -->
+  <img src="hedgehog-logo-final-v2.svg" alt="A small brown cartoon hedgehog" width="48" height="48">
   <h1>Hedgehog Club <span class="badge">🦔 new!</span></h1>
+  <!-- ✅ image-alt: pure decoration, so it says nothing (alt="") instead of its file name -->
+  <img src="hedgehog-logo-final-v2.svg?small" alt="" width="24" height="24">
 
   <!-- ✅ no auto-advancing: the person moves the tips -->
   <p id="tip">Tip: hedgehogs like mealworms.</p>
@@ -69,6 +76,13 @@
     <label for="zip">ZIP code</label>
     <input id="zip" name="zip" inputmode="numeric" autocomplete="postal-code">
 
+    <!-- ✅ honorific-opt-out: optional, "prefer not to say" is the default AND can be chosen again, and Mx is there -->
+    <label for="title">Title (optional)</label>
+    <select id="title" name="title" autocomplete="honorific-prefix">
+      <option value="">Prefer not to say</option>
+      <option>Mx</option><option>Ms</option><option>Mr</option><option>Mrs</option><option>Dr</option>
+    </select>
+
     <label for="notes">Notes</label>
     <textarea id="notes" name="notes" rows="4"></textarea>
 
@@ -82,6 +96,8 @@
     <button type="reset">Reset</button>
     <p class="warn">Deleting cannot be undone.</p>
     <button type="button" id="delete">Delete my data</button>
+
+    <p class="fine-print">By joining, you agree to be visited by hedgehogs.</p>
 
     <div class="footer">
       <button type="submit" id="save">Save</button> <span id="status" role="status"></span>

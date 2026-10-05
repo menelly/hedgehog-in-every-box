@@ -234,3 +234,109 @@ test('♿ a11y smoke: PASSES the fixed form (axe included)', async ({ page }) =>
   const r = await web.a11ySmoke(page, { axe: true })
   expect(r.passed).toBeGreaterThanOrEqual(7)
 })
+
+// ─────────────────── 🗣️ the questions accessibility should have asked ───────────────────
+// Someone on r/vibecoding posted a giant "audit your app" prompt where accessibility got
+// ONE line. Ren answered with the questions it should have asked. These test those.
+
+/** a11ySmoke with only Ren's three page checks switched on */
+const rensQuestions = { skip: ['names', 'keyboard', 'targets', 'sliders', 'reflow', 'dark', 'axe'] as const }
+const only = (r: Report, caseId: string) => r.findings.filter((f) => f.caseId === caseId)
+
+test('🗣️ contrast, honorifics, pictures: CATCHES the broken form', async ({ page }) => {
+  await page.goto(`/broken.html?profile=${profile()}`)
+  const r = await web.a11ySmoke(page, { skip: [...rensQuestions.skip], throwOnFindings: false })
+
+  // 🎨 the pale grey small print, with its colours and ratio, in words
+  const pale = only(r, 'color-contrast')
+  expect(pale.some((f) => f.where.includes('By joining') && /#bbbbbb on #ffffff: [\d.]+:1, needs 4\.5:1/.test(f.what))).toBe(true)
+  expect(pale.find((f) => f.where.includes('By joining'))!.human).toMatch(/^The text "By joining, you agree to be visited by hedgehogs\." is hard to see against its background/)
+
+  // 🎩 the title dropdown: required, no real way to pick "no title", no Mx
+  const title = only(r, 'honorific-opt-out')
+  expect(title.map((f) => f.what.split(' (')[0]).sort()).toEqual(['no Mx or equivalent', 'no blank or "prefer not to say" a person can choose', 'required'])
+  expect(title.every((f) => f.where.startsWith('"Title *'))).toBe(true)
+
+  // 🖼️ one picture named after its file, one with no alt at all
+  const pics = only(r, 'image-alt')
+  expect(pics.map((f) => f.what).sort()).toEqual(['alt is the file name: "hedgehog-logo-final-v2"', 'no alt attribute'])
+})
+
+test('🗣️ contrast, honorifics, pictures: PASSES the fixed form', async ({ page }) => {
+  await page.goto(`/fixed.html?profile=${profile()}`)
+  const r = await web.a11ySmoke(page, { skip: [...rensQuestions.skip], axe: true })
+  expect(r.passed).toBe(3) // contrast, the title dropdown, the pictures: each actually checked
+  expect(r.skipped.filter((s) => s.reason.startsWith('honorific'))).toEqual([]) // it FOUND the title field
+})
+
+test('🎩 honorifics: no title field, or a "Job title", is skipped cleanly, not failed', async ({ page }) => {
+  await page.setContent(`<label for="j">Job title</label><input id="j" required><label for="b">Book title</label><select id="b" required><option>Dune</option></select>`)
+  const r = await web.a11ySmoke(page, { skip: ['names', 'keyboard', 'targets', 'sliders', 'reflow', 'dark', 'axe', 'contrast', 'images'] })
+  expect(r.findings).toEqual([])
+  expect(r.skipped.map((s) => s.reason)).toContain('honorific: no title/salutation field on this page (nothing to opt out of, which is the best answer)')
+})
+
+test('🎩 honorifics: radio buttons and a plain "Salutation" box are checked too', async ({ page }) => {
+  await page.setContent(`
+    <fieldset><legend>Title</legend>
+      <label><input type="radio" name="t" value="mr" required> Mr</label>
+      <label><input type="radio" name="t" value="ms"> Ms</label>
+    </fieldset>
+    <label for="s">Salutation</label><input id="s" required>
+    <fieldset><legend>Honorific</legend>
+      <label><input type="radio" name="h" value=""> Prefer not to say</label>
+      <label><input type="radio" name="h" value="mx"> Mx</label>
+      <label><input type="radio" name="h" value="dr"> Dr</label>
+    </fieldset>`)
+  const r = await web.a11ySmoke(page, { skip: ['names', 'keyboard', 'targets', 'sliders', 'reflow', 'dark', 'axe', 'contrast', 'images'], throwOnFindings: false })
+  const where = (w: string) => r.findings.filter((f) => f.where === w).map((f) => f.what.split(' (')[0]).sort()
+  expect(where('"Title" set of buttons')).toEqual(['no Mx or equivalent', 'no blank or "prefer not to say" a person can choose', 'required'])
+  expect(where('"Salutation" box')).toEqual(['required']) // a box can hold Mx or nothing; it just mustn't be required
+  expect(r.passed).toBe(1) // the Honorific group does it right
+})
+
+test('🧭 profiles: Ren\'s page checks skip React Native (the web proxy can\'t see a native screen)', async ({ page }) => {
+  await page.goto(`/broken.html?profile=${profile()}`)
+  const rn = hedgehog({ platforms: ['react-native'] })
+  const r = await rn.a11ySmoke(page, { skip: [...rensQuestions.skip] })
+  expect(r.findings).toEqual([])
+  expect(r.skipped.map((s) => s.reason)).toEqual([
+    'contrast: not in profile react-native (applies to web-desktop, web-mobile, desktop-shell)',
+    'honorific: not in profile react-native (applies to web-desktop, web-mobile, desktop-shell)',
+    'images: not in profile react-native (applies to web-desktop, web-mobile, desktop-shell)',
+  ])
+  const d = await rn.dictationCheck(page)
+  expect(d.passed).toBe(0)
+  expect(d.skipped[0].reason).toBe('dictation: not in profile react-native (applies to web-desktop, web-mobile, desktop-shell)')
+  // and a Tauri/Electron app DOES get them
+  expect(hedgehog({ platforms: ['desktop-shell'] }).cases().map((c) => c.id)).toEqual(expect.arrayContaining(['color-contrast', 'honorific-opt-out', 'dictation', 'image-alt']))
+})
+
+// ─────────────────────────────── 🎙️ dictation ───────────────────────────────
+
+test('🎙️ dictation: CATCHES the box that eats the space between phrases', async ({ page }) => {
+  await page.goto(`/broken.html?profile=${profile()}`)
+  const r = await web.dictationCheck(page, { throwOnFindings: false })
+  const nick = r.findings.filter((f) => f.where === 'Nickname box')
+  expect(nick).toHaveLength(1)
+  expect(nick[0].caseId).toBe('dictation')
+  // the eaten trailing space is at the very END, so the message must show the end
+  expect(nick[0].what).toBe('a whole phrase pasted in at once: holds "…omorrow morning.", wanted "…omorrow morning. " (first difference at character 59)')
+  expect(nick[0].human).toMatch(/^The "Nickname" box didn't keep what was dictated \(a whole phrase pasted in at once\): it holds/)
+  // the phone and email boxes aren't for sentences: skipped with a reason, not silently
+  expect(r.skipped.some((s) => s.reason.startsWith('Phone box: a tel box'))).toBe(true)
+})
+
+test('🎙️ dictation: PASSES the fixed form', async ({ page }) => {
+  await page.goto(`/fixed.html?profile=${profile()}`)
+  const r = await web.dictationCheck(page)
+  expect(r.passed).toBe(3) // Name, Nickname, Notes: phrase, correction, second phrase, leave
+})
+
+test('🎙️ dictation: an "auto-capitalise" mask that rewrites what was said is caught', async ({ page }) => {
+  // rewrites the whole value on every input event: dictation's odd capitals are "fixed" out from under the person
+  await page.setContent(`<label for="d">Diary</label><input id="d" oninput="this.value=this.value.charAt(0).toUpperCase()+this.value.slice(1).toLowerCase()">`)
+  const r = await web.dictationCheck(page, { throwOnFindings: false })
+  expect(r.findings).toHaveLength(1)
+  expect(r.findings[0].what).toBe('a whole phrase pasted in at once: holds "Pick up the prescription", wanted "pick up the Prescription" (first difference at character 1)')
+})

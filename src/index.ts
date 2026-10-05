@@ -12,6 +12,7 @@ import type { Page } from '@playwright/test'
 import { CATALOGUE, KIND_PLATFORMS, type Kind } from './catalogue'
 import { a11ySmoke, type A11yOptions } from './a11y'
 import { clippingCheck, type ClippingOptions } from './clipping'
+import { dictationCheck, type DictationOptions } from './dictation'
 import { comeBackTomorrow, doubleSubmit, roundTripValue, survivesReload, type ComeBackTomorrowOptions, type DoubleSubmitOptions, type RoundTripValueOptions, type SurvivesReloadOptions } from './interaction'
 import { keyboardCheck, type KeyboardOptions } from './keyboard'
 import { fieldMixup, type FieldMixupOptions } from './mixup'
@@ -29,6 +30,7 @@ export * from './motion'
 export * from './clipping'
 export * from './keyboard'
 export * from './a11y'
+export * from './dictation'
 
 const KIND_WORDS: Record<Kind, string> = {
   name: 'names',
@@ -75,5 +77,6 @@ export function hedgehog(defaults: CommonOptions = {}) {
     clippingCheck: (page: Page, o: ClippingOptions = {}) => clippingCheck(page, { ...d, ...o }),
     keyboardCheck: (page: Page, o: KeyboardOptions = {}) => keyboardCheck(page, { ...d, ...o }),
     a11ySmoke: (page: Page, o: A11yOptions = {}) => a11ySmoke(page, { ...d, ...o }),
+    dictationCheck: (page: Page, o: DictationOptions = {}) => dictationCheck(page, { ...d, ...o }),
   }
 }

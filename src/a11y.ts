@@ -11,15 +11,27 @@
  *   reflow    at 640px (a 1280px window at 200% zoom) and 375px (a phone):
  *             no sideways scrolling, every box on screen
  *   dark      on a dark theme, no glaring white text boxes
+ *   contrast  text you can see against its background (axe's color-contrast
+ *             rule, WCAG 2 AA), every failing piece of text listed with its
+ *             colours and ratio. Needs @axe-core/playwright.
+ *   honorific a title/salutation field (Mr, Mrs, Dr…) must be optional, offer
+ *             a blank or "prefer not to say", and include Mx
+ *   images    every picture is either marked decorative or says what it shows
+ *             (not nothing, not its file name)
  *   axe       optional: if @axe-core/playwright is installed, its serious and
  *             critical findings are included
+ *
+ * 🗣️ contrast, honorific and images came from Ren, answering an "audit your
+ * app" prompt on r/vibecoding that gave accessibility ONE line. They apply to
+ * web pages and desktop shells (Tauri/Electron); a web proxy can't see a
+ * native React Native screen, so that profile skips them (manual checklist).
  *
  * It's a smoke test, not an audit. Passing it means nobody is locked out by
  * the obvious things; it doesn't mean the app is accessible. Ask disabled
  * people. Pay them.
  */
 import type { Page } from '@playwright/test'
-import { CATALOGUE } from './catalogue'
+import { CATALOGUE, appliesTo, platformsOf } from './catalogue'
 import { finish, firstSentence, newReport, resolvePlatforms, type CommonOptions, type Report } from './report'
 
 export interface A11yOptions extends CommonOptions {
@@ -32,13 +44,46 @@ export interface A11yOptions extends CommonOptions {
   /** smallest acceptable target, CSS px (default 24) */
   minTarget?: number
   /** skip a sub-check */
-  skip?: ('names' | 'keyboard' | 'targets' | 'sliders' | 'reflow' | 'dark' | 'axe')[]
+  skip?: ('names' | 'keyboard' | 'targets' | 'sliders' | 'reflow' | 'dark' | 'contrast' | 'honorific' | 'images' | 'axe')[]
   /** most Tab presses to try (default 200) */
   maxTabs?: number
 }
 
 const why = (id: string) => firstSentence(CATALOGUE.find((c) => c.id === id)!.why)
 const CHECK = 'a11ySmoke'
+
+/** the bits of an axe result we read (so we don't need axe's types to compile) */
+interface AxeNode {
+  target: unknown[]
+  html: string
+  any?: { data?: { fgColor?: string; bgColor?: string; contrastRatio?: number; expectedContrastRatio?: string; fontSize?: string } | null }[]
+}
+interface AxeResults {
+  violations: { id: string; impact?: string | null; help: string; nodes: AxeNode[] }[]
+  incomplete: { id: string; nodes: AxeNode[] }[]
+}
+interface AxeBuilderLike {
+  withRules(rules: string[]): AxeBuilderLike
+  disableRules(rules: string[]): AxeBuilderLike
+  analyze(): Promise<AxeResults>
+}
+type AxeBuilderClass = new (o: { page: Page }) => AxeBuilderLike
+
+/** 🧰 @axe-core/playwright is optional: use it if it's installed, otherwise null */
+async function loadAxe(): Promise<AxeBuilderClass | null> {
+  try {
+    const mod = await import('@axe-core/playwright' as string)
+    return mod.default ?? mod.AxeBuilder ?? null
+  } catch {
+    return null
+  }
+}
+
+/** the visible words of an axe node, for a human message: its text if it has any, else its tag */
+function nodeWords(n: AxeNode): string {
+  const text = n.html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  return text ? `"${text.slice(0, 50)}${text.length > 50 ? '…' : ''}"` : n.html.slice(0, 60)
+}
 
 export async function a11ySmoke(page: Page, opts: A11yOptions = {}): Promise<Report> {
   const report = newReport(CHECK, resolvePlatforms(opts))
@@ -241,22 +286,195 @@ export async function a11ySmoke(page: Page, opts: A11yOptions = {}): Promise<Rep
     await page.emulateMedia({ colorScheme: null })
   }
 
+  // 🧭 the three checks from Ren's list are for web pages and desktop shells; say so when they're skipped
+  const notHere = (caseId: string, title: string) => {
+    const c = CATALOGUE.find((x) => x.id === caseId)!
+    if (appliesTo(c, report.platforms)) return false
+    report.skipped.push({ check: CHECK, reason: `${title}: not in profile ${report.platforms.join(' + ')} (applies to ${platformsOf(c).join(', ')})` })
+    return true
+  }
+  const Axe = opts.axe === false ? null : await loadAxe()
+
+  // ── 🎨 contrast: can you see the words? ──
+  let contrastRan = false
+  if (!skip.has('contrast') && !notHere('color-contrast', 'contrast')) {
+    if (opts.axe === false) report.skipped.push({ check: CHECK, reason: 'contrast: needs axe, and you passed axe: false' })
+    else if (!Axe) {
+      if (opts.axe === true) add('color-contrast', 'axe', '@axe-core/playwright not installed', 'You asked for axe, but @axe-core/playwright is not installed, so contrast could not be checked: npm i -D @axe-core/playwright')
+      else report.skipped.push({ check: CHECK, reason: 'contrast: @axe-core/playwright is not installed (npm i -D @axe-core/playwright to check it)' })
+    } else {
+      // ONLY the color-contrast rule: one question, answered completely
+      const res = await new Axe({ page }).withRules(['color-contrast']).analyze()
+      contrastRan = true
+      const bad = res.violations.flatMap((v) => v.nodes)
+      for (const n of bad) {
+        const d = n.any?.find((a) => a.data?.contrastRatio !== undefined)?.data
+        const colours = d ? `${d.fgColor} on ${d.bgColor}: ${d.contrastRatio}:1, needs ${d.expectedContrastRatio}` : 'contrast too low'
+        add('color-contrast', `${nodeWords(n)} (${n.target.join(' ')})`, colours, `The text ${nodeWords(n)} is hard to see against its background (${colours}${d?.fontSize ? `, at ${d.fontSize}` : ''}). ${why('color-contrast')}`)
+      }
+      if (!bad.length) report.passed++
+      // what axe couldn't judge (text over a picture or a gradient) is said out loud, not hidden
+      const unsure = res.incomplete.flatMap((v) => v.nodes)
+      if (unsure.length) report.skipped.push({ check: CHECK, reason: `contrast: axe couldn't judge ${unsure.length} piece(s) of text (over a picture, a gradient, or behind something), so check these by eye: ${unsure.slice(0, 5).map(nodeWords).join(', ')}` })
+    }
+  }
+
+  // ── 🎩 honorifics: a way out of Mr and Mrs ──
+  if (!skip.has('honorific') && !notHere('honorific-opt-out', 'honorific')) {
+    const fields: { name: string; kind: string; required: boolean; optOut: boolean; mx: boolean; options: string[] }[] = await page.evaluate(() => {
+      const words = (el: Element | null) => (el?.textContent ?? '').replace(/\s+/g, ' ').trim()
+      // the field's own words: its label, aria-label, legend, name and id, most human first
+      const wordsFor = (el: HTMLElement) =>
+        [
+          el.getAttribute('aria-label'),
+          (el.getAttribute('aria-labelledby') ?? '').split(/\s+/).filter(Boolean).map((id) => words(document.getElementById(id))).join(' '),
+          el.id ? words(document.querySelector(`label[for="${CSS.escape(el.id)}"]`)) : '',
+          el.closest('label') ? words(el.closest('label')) : '',
+          words(el.closest('fieldset')?.querySelector('legend') ?? null),
+          el.getAttribute('name'),
+          el.id,
+        ].filter((w): w is string => !!w)
+      // everything, for "is this a title field?"
+      const labelOf = (el: HTMLElement) => wordsFor(el).join(' ')
+      // the one a person would recognise, for the message
+      const shownAs = (el: HTMLElement) => (wordsFor(el)[0] ?? 'title').slice(0, 40)
+      const HONORIFIC_WORD = /\b(mr|mrs|ms|miss|mx|dr|title|salutation|honorific)\b/i
+      // "Job title" and "Post title" are titles too, just not this kind
+      const OTHER_TITLE = /\b(job|post|book|page|song|article|movie|film|task|document|event|project|work|position|role|listing|product|video|episode|chapter)\b/i
+      const HONORIFIC_OPTION = /^\s*(mr|mrs|ms|miss|mx|dr)\.?\s*$/i
+      // a way to say "no title": a blank, "prefer not to say", "none", a dash
+      const OPT_OUT = /^\s*$|prefer not|rather not|\bnone\b|no title|not (specified|applicable)|^\s*n\/?a\s*$|^\s*[-–—]+\s*$/i
+      // Mx, or another title that isn't gendered, or room to write your own
+      const NEUTRAL = /\b(mx|mre|misc|ind)\b|\bother\b|self.describ|write (my|your) own|custom/i
+      const isHonorific = (label: string, options: string[]) =>
+        options.filter((o) => HONORIFIC_OPTION.test(o)).length >= 2 || (HONORIFIC_WORD.test(label) && !OTHER_TITLE.test(label))
+      const visible = (el: Element) => el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== 'hidden'
+      const req = (el: HTMLElement) => el.hasAttribute('required') || el.getAttribute('aria-required') === 'true'
+      const out: { name: string; kind: string; required: boolean; optOut: boolean; mx: boolean; options: string[] }[] = []
+
+      // 📋 dropdowns
+      for (const sel of document.querySelectorAll<HTMLSelectElement>('select')) {
+        if (!visible(sel)) continue
+        const label = labelOf(sel)
+        const all = [...sel.options]
+        const options = all.map((o) => o.text.trim())
+        if (!isHonorific(label, options)) continue
+        // an opt-out a person can actually CHOOSE: a disabled "Choose…" placeholder doesn't count
+        const usable = all.filter((o) => !o.disabled)
+        out.push({
+          name: shownAs(sel),
+          kind: 'dropdown',
+          required: req(sel),
+          optOut: usable.some((o) => o.value === '' || OPT_OUT.test(o.text)),
+          mx: usable.some((o) => NEUTRAL.test(o.text)),
+          options,
+        })
+      }
+
+      // 🔘 radio buttons, one group per name
+      const groups = new Map<string, HTMLInputElement[]>()
+      for (const r of document.querySelectorAll<HTMLInputElement>('input[type="radio"]')) {
+        if (!visible(r) && !visible(r.closest('label') ?? r)) continue
+        const g = r.name || r.id
+        groups.set(g, [...(groups.get(g) ?? []), r])
+      }
+      for (const [name, radios] of groups) {
+        const optionText = (r: HTMLInputElement) => (r.id ? words(document.querySelector(`label[for="${CSS.escape(r.id)}"]`)) : '') || words(r.closest('label')) || r.value
+        const options = radios.map(optionText)
+        const legend = words(radios[0].closest('fieldset')?.querySelector('legend') ?? null)
+        if (!isHonorific(`${legend} ${name}`, options)) continue
+        out.push({
+          name: (legend || name).slice(0, 40),
+          kind: 'set of buttons',
+          required: radios.some(req),
+          optOut: radios.some((r) => !r.disabled && OPT_OUT.test(optionText(r))),
+          mx: radios.some((r) => !r.disabled && NEUTRAL.test(optionText(r))),
+          options,
+        })
+      }
+
+      // ✍️ a plain box labelled Title: anyone can type Mx or leave it blank, so long as it isn't required
+      for (const box of document.querySelectorAll<HTMLInputElement>('input:not([type]), input[type="text"]')) {
+        if (!visible(box)) continue
+        const label = labelOf(box)
+        if (!isHonorific(label, [])) continue
+        out.push({ name: shownAs(box), kind: 'box', required: req(box), optOut: true, mx: true, options: [] })
+      }
+      return out
+    })
+
+    if (!fields.length) report.skipped.push({ check: CHECK, reason: 'honorific: no title/salutation field on this page (nothing to opt out of, which is the best answer)' })
+    for (const f of fields) {
+      let ok = true
+      const where = `"${f.name}" ${f.kind}`
+      if (f.required) {
+        ok = false
+        add('honorific-opt-out', where, 'required', `The "${f.name}" ${f.kind} is required, so nobody can save without picking Mr, Mrs or similar. ${why('honorific-opt-out')}`)
+      }
+      if (!f.optOut) {
+        ok = false
+        add('honorific-opt-out', where, `no blank or "prefer not to say" a person can choose (options: ${f.options.join(', ')})`, `The "${f.name}" ${f.kind} has no way to choose no title: no blank, and no "prefer not to say" that can actually be picked.`)
+      }
+      if (!f.mx) {
+        ok = false
+        add('honorific-opt-out', where, `no Mx or equivalent (options: ${f.options.join(', ')})`, `The "${f.name}" ${f.kind} has no Mx (or any title that isn't gendered), so a non-binary person has to pick one that's wrong.`)
+      }
+      if (ok) report.passed++
+    }
+  }
+
+  // ── 🖼️ pictures that say what they are ──
+  if (!skip.has('images') && !notHere('image-alt', 'images')) {
+    const imgs: { src: string; alt: string | null; named: string | null }[] = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLImageElement>('img')]
+        // decorative on purpose is fine: alt="", role presentation/none, or hidden from screen readers
+        .filter((im) => im.getAttribute('alt') !== '' && !['presentation', 'none'].includes(im.getAttribute('role') ?? '') && !im.closest('[aria-hidden="true"]'))
+        .map((im) => {
+          const by = im.getAttribute('aria-labelledby')
+          return {
+            src: im.currentSrc || im.getAttribute('src') || '',
+            alt: im.getAttribute('alt'),
+            named: im.getAttribute('aria-label') || (by ? (document.getElementById(by)?.textContent ?? '').trim() : '') || null,
+          }
+        }),
+    )
+    let ok = true
+    for (const im of imgs) {
+      // the file name, for the message and for "is the alt text just the file name?"
+      const file = im.src.startsWith('data:') ? '' : decodeURIComponent(im.src.split(/[?#]/)[0].split('/').pop() ?? '')
+      const stem = file.replace(/\.[a-z0-9]+$/i, '')
+      const which = file || 'an inline picture'
+      const where = `picture ${file || im.src.slice(0, 40)}`
+      const text = (im.alt ?? im.named ?? '').trim()
+      const looksLikeFile =
+        /\.(png|jpe?g|gif|webp|svg|avif|bmp|ico|tiff?)$/i.test(text) || (stem.length > 0 && text.toLowerCase() === stem.toLowerCase()) || /^(img|dsc|pxl|screenshot)[_\- ]?\d/i.test(text)
+      if (im.alt === null && !im.named) {
+        ok = false
+        add('image-alt', where, 'no alt attribute', `A picture (${which}) has no alt text at all, so a screen reader reads out its file name or just says "image". ${why('image-alt')} If it's decoration, give it alt="".`)
+      } else if (!text) {
+        ok = false
+        add('image-alt', where, 'alt is only spaces', `A picture (${which}) has alt text that's only spaces. If it's decoration, use alt=""; if not, say what it shows.`)
+      } else if (looksLikeFile) {
+        ok = false
+        add('image-alt', where, `alt is the file name: "${text}"`, `A picture's alt text is just its file name ("${text}"), which tells a blind person nothing about what it shows. ${why('image-alt')}`)
+      } else if (/^(image|img|picture|photo|graphic|icon|logo|banner)$/i.test(text)) {
+        ok = false
+        add('image-alt', where, `alt says only "${text}"`, `A picture's alt text is just "${text}", which says THAT it's a picture, not WHAT it shows.`)
+      }
+    }
+    if (ok) report.passed++
+  }
+
   // ── axe, if you have it ──
   if (!skip.has('axe') && opts.axe !== false) {
-    let AxeBuilder: (new (o: { page: Page }) => { analyze(): Promise<{ violations: { id: string; impact?: string | null; help: string; nodes: unknown[] }[] }> }) | null = null
-    try {
-      // optional dependency: only used if installed
-      const mod = await import('@axe-core/playwright' as string)
-      AxeBuilder = mod.default ?? mod.AxeBuilder
-    } catch {
-      AxeBuilder = null
-    }
-    if (!AxeBuilder) {
+    if (!Axe) {
       if (opts.axe === true) add('labels', 'axe', '@axe-core/playwright not installed', 'You asked for an axe scan, but @axe-core/playwright is not installed: npm i -D @axe-core/playwright')
       else report.skipped.push({ check: CHECK, reason: 'axe: @axe-core/playwright is not installed (optional; npm i -D @axe-core/playwright to add it)' })
     } else {
       const impacts = opts.axeImpacts ?? ['serious', 'critical']
-      const res = await new AxeBuilder({ page }).analyze()
+      // contrast already had its own run above, with the colours and ratios; don't say it twice
+      const builder = new Axe({ page })
+      const res = await (contrastRan ? builder.disableRules(['color-contrast']) : builder).analyze()
       const bad = res.violations.filter((v) => impacts.includes(v.impact ?? ''))
       for (const v of bad) add('labels', `axe: ${v.id}`, `${v.impact}, ${v.nodes.length} element(s)`, `axe (${v.impact}): ${v.help} — on ${v.nodes.length} element(s).`)
       if (!bad.length) report.passed++

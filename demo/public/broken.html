@@ -33,12 +33,18 @@
   .strip { display: inline-block; }
   .tip { display: inline-block; width: 300px; }
   #banner { background: gold; padding: 20px; }
+  /* 🐛 color-contrast: elegant pale grey on white, about 1.9:1. Gone in the sun, gone with cataracts */
+  .fine-print { color: #bbb; }
 </style>
 </head>
 <body>
 <div id="banner-slot"></div>
 <main>
+  <!-- 🐛 image-alt: the alt text is the file name (what a CMS fills in when nobody writes one) -->
+  <img src="hedgehog-logo-final-v2.svg" alt="hedgehog-logo-final-v2" width="48" height="48">
   <h1>Hedgehog Club <span class="badge">🦔 new!</span></h1>
+  <!-- 🐛 image-alt: no alt at all, so a screen reader reads out the file name -->
+  <img src="hedgehog-logo-final-v2.svg?small" width="24" height="24">
 
   <!-- 🐛 endless-cycling: a carousel that advances on its own -->
   <div class="tips"><div class="strip" id="strip"><span class="tip">Tip: hedgehogs like mealworms.</span><span class="tip">Tip: never give them milk.</span><span class="tip">Tip: they roll up when scared.</span></div></div>
@@ -69,6 +75,14 @@
     <label for="zip">ZIP code</label>
     <input id="zip" name="zip" inputmode="numeric">
 
+    <!-- 🐛 honorific-opt-out: required (aria-required here, so the rest of the demo can still save),
+         the only blank is a DISABLED "Choose…" you can never go back to, and there's no Mx -->
+    <label for="title">Title *</label>
+    <select id="title" name="title" aria-required="true">
+      <option value="" disabled selected>Choose…</option>
+      <option>Mr</option><option>Mrs</option><option>Ms</option><option>Dr</option>
+    </select>
+
     <!-- 🐛 labels: placeholder only, no label -->
     <textarea id="notes" name="notes" placeholder="Notes" rows="4"></textarea>
 
@@ -79,6 +93,8 @@
     <!-- 🐛 keyboard-only: a div that only a mouse can press -->
     <div onclick="document.getElementById('form').reset()" style="cursor:pointer; display:inline-block; padding:8px; border:1px solid">Reset</div>
     <button type="button" id="delete">Delete my data</button>
+
+    <p class="fine-print">By joining, you agree to be visited by hedgehogs.</p>
 
     <div class="footer">
       <button type="submit" id="save">Save</button> <span id="status"></span>
@@ -107,6 +123,10 @@
     if (!$('hint-slot').textContent) $('hint-slot').innerHTML = '<p style="height:180px;background:#dfd">Looks good! 👍</p>'
     window.avatarId = btoa($('name').value)
   })
+
+  // 🐛 dictation: "tidies" the nickname on EVERY input event. Typing, you'd barely notice; dictating,
+  //    the space speech-to-text leaves after a phrase is eaten, and the next phrase glues onto the last word
+  $('nick').addEventListener('input', () => { $('nick').value = $('nick').value.trimEnd() })
 
   // 🐛 moves-under-the-pointer: pressing Delete inserts a warning above it, so the button jumps away
   $('delete').addEventListener('pointerdown', () => {
