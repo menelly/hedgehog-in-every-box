@@ -556,7 +556,7 @@
 - **Why a real person does this:** Pale grey on white looks elegant on the designer's monitor and vanishes for low vision, cataracts, colour-blindness, a cheap screen, or a phone in the sun. If the text isn't readable, it isn't there.
 - **How it's checked:** a11ySmoke runs axe's color-contrast rule only (WCAG 2 AA: 4.5:1, or 3:1 for large text) and lists every failing piece of text with its colours and ratio
 - **Applies to:** web-desktop, web-mobile, desktop-shell
-- **Where we learned it:** 🗣️ Ren's advocacy. Ren's answer to an audit prompt on r/vibecoding (2026) that gave accessibility one line. WCAG 1.4.3 Contrast (Minimum).
+- **Where we learned it:** 🗣️ Ren's advocacy. Ren's answer to an audit prompt on r/vibecoding (August 2026) that gave accessibility one line. WCAG 1.4.3 Contrast (Minimum).
 
 ### a way out of Mr and Mrs `honorific-opt-out`
 
@@ -564,7 +564,7 @@
 - **Why a real person does this:** A required title box makes people pick a social category that may be wrong, painful, or none of the app's business. In Ren's words, apps need "a way to opt out of distressing or dysphoria-causing unnecessary social constructs like Mr or ma'am." Optional, with a blank or "prefer not to say", and Mx for anyone who wants a title that isn't gendered.
 - **How it's checked:** a11ySmoke finds title/salutation/honorific fields (select, radio group or box); each must be optional, offer a blank or "prefer not to say" a person can actually choose, and include Mx or an equivalent. Skipped when there is no such field
 - **Applies to:** web-desktop, web-mobile, desktop-shell
-- **Where we learned it:** 🗣️ Ren's advocacy. Ren's answer to an audit prompt on r/vibecoding (2026) that gave accessibility one line.
+- **Where we learned it:** 🗣️ Ren's advocacy. Ren's answer to an audit prompt on r/vibecoding (August 2026) that gave accessibility one line.
 
 ### speech-to-text, not typing `dictation`
 
@@ -572,7 +572,7 @@
 - **Why a real person does this:** People who can't type (pain, tremor, RSI, a cast, a switch, fatigue) dictate, and dictation drops whole phrases in at once, replaces a word mid-sentence when corrected, capitalises oddly and leaves a trailing space. An input handler that only ever met a keyboard eats it, and the app punishes the people who can't type.
 - **How it's checked:** dictationCheck: in every free-text box, a whole phrase at once, then the middle word replaced, then a second phrase joined on, then leave the box; the box must keep exactly what was said (trimming the outer spaces on leaving is fine)
 - **Applies to:** web-desktop, web-mobile, desktop-shell
-- **Where we learned it:** 🗣️ Ren's advocacy. Ren's answer to an audit prompt on r/vibecoding (2026) that gave accessibility one line.
+- **Where we learned it:** 🗣️ Ren's advocacy. Ren's answer to an audit prompt on r/vibecoding (August 2026) that gave accessibility one line.
 
 ### pictures that say what they are `image-alt`
 
@@ -580,7 +580,7 @@
 - **Why a real person does this:** A screen reader reads a picture's alt text, and with none it reads the file name: "IMG underscore 2 0 4 1 dot jpeg". Decorative pictures should say nothing (alt=""), and every other picture should say what it shows.
 - **How it's checked:** a11ySmoke: every <img> is either marked decorative (alt="" or role="presentation"/"none") or has alt text that isn't empty, isn't the file name, and isn't just "image"
 - **Applies to:** web-desktop, web-mobile, desktop-shell
-- **Where we learned it:** 🗣️ Ren's advocacy. Ren's answer to an audit prompt on r/vibecoding (2026) that gave accessibility one line. WCAG 1.1.1 Non-text Content.
+- **Where we learned it:** 🗣️ Ren's advocacy. Ren's answer to an audit prompt on r/vibecoding (August 2026) that gave accessibility one line. WCAG 1.1.1 Non-text Content.
 
 ### errors that say which box and why `errors-announced`
 
