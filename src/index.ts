@@ -17,7 +17,9 @@ import { comeBackTomorrow, doubleSubmit, roundTripValue, survivesReload, type Co
 import { keyboardCheck, type KeyboardOptions } from './keyboard'
 import { fieldMixup, type FieldMixupOptions } from './mixup'
 import { motionCheck, type MotionOptions } from './motion'
+import { floatingPointCheck, type FloatingPointOptions } from './numbers'
 import { notApplicable, resolvePlatforms, type CommonOptions } from './report'
+import { actionableErrors, keepsWhatWasTyped, slowNetwork, type ActionableErrorsOptions, type KeepsWhatWasTypedOptions, type SlowNetworkOptions } from './submit'
 import { walkEveryTextbox, type WalkOptions } from './walk'
 
 export * from './catalogue'
@@ -31,6 +33,8 @@ export * from './clipping'
 export * from './keyboard'
 export * from './a11y'
 export * from './dictation'
+export * from './submit'
+export * from './numbers'
 
 const KIND_WORDS: Record<Kind, string> = {
   name: 'names',
@@ -78,5 +82,9 @@ export function hedgehog(defaults: CommonOptions = {}) {
     keyboardCheck: (page: Page, o: KeyboardOptions = {}) => keyboardCheck(page, { ...d, ...o }),
     a11ySmoke: (page: Page, o: A11yOptions = {}) => a11ySmoke(page, { ...d, ...o }),
     dictationCheck: (page: Page, o: DictationOptions = {}) => dictationCheck(page, { ...d, ...o }),
+    keepsWhatWasTyped: (page: Page, o: KeepsWhatWasTypedOptions) => keepsWhatWasTyped(page, { ...d, ...o }),
+    actionableErrors: (page: Page, o: ActionableErrorsOptions) => actionableErrors(page, { ...d, ...o }),
+    slowNetwork: (page: Page, o: SlowNetworkOptions) => slowNetwork(page, { ...d, ...o }),
+    floatingPointCheck: (page: Page, o: FloatingPointOptions = {}) => floatingPointCheck(page, { ...d, ...o }),
   }
 }

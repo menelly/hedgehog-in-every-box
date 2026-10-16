@@ -9,7 +9,7 @@
  * "caught it" AND at "clean".
  */
 import { devices, expect, test, type Page } from '@playwright/test'
-import { CATALOGUE, hedgehog, type Report } from '../src'
+import { CATALOGUE, FLOAT_CRUMBS, hedgehog, type Report } from '../src'
 
 let n = 0
 const profile = () => `t${Date.now()}-${process.pid}-${n++}`
@@ -79,6 +79,7 @@ test('🔀 field mixup: CATCHES the broken form', async ({ page }) => {
   expect(found).toContain('phone-human-formats') // "(555) 123-4567" refused
   expect(found).toContain('url-without-scheme') // www.example.com blocks the whole form
   expect(found).not.toContain('phone-in-email') // browser email validation does say so: fair
+  expect(found).toContain('plus-sign-email') // a home-made email pattern with no + in it
   expect(r.findings.find((f) => f.caseId === 'address-in-phone')!.human).toMatch(/pop-up/)
   // search wasn't pointed at anything: skipped WITH a reason, not silently missing
   expect(r.skipped.map((s) => s.reason).join('\n')).toMatch(/search box/)
@@ -339,4 +340,133 @@ test('🎙️ dictation: an "auto-capitalise" mask that rewrites what was said i
   const r = await web.dictationCheck(page, { throwOnFindings: false })
   expect(r.findings).toHaveLength(1)
   expect(r.findings[0].what).toBe('a whole phrase pasted in at once: holds "Pick up the prescription", wanted "pick up the Prescription" (first difference at character 1)')
+})
+
+// ─────────────────── 📝 from Mark Ajzenstadt's list (X, October 2026) ───────────────────
+// What a vibe-coded app needs before it touches a paying customer. Only the parts a
+// browser can see are here; the rest of his list (SSO, backups, billing) isn't ours to test.
+
+test('📧 plus-sign email: broken calls ren+hedgehogs@example.com invalid, fixed takes it', async ({ page }) => {
+  const plus = CATALOGUE.filter((c) => c.id === 'plus-sign-email')
+  const bad = await web.fieldMixup(page, { ...mixupOpts(`/broken.html?profile=${profile()}`), cases: plus, throwOnFindings: false })
+  expect(bad.findings.map((f) => f.caseId)).toEqual(['plus-sign-email'])
+  expect(bad.findings[0].human).toBe(
+    'The email box refused "ren+hedgehogs@example.com", which is a normal way to write a email. Plenty of people sign up as ren+shopname@… to sort their mail, or to find out who sold their address.',
+  )
+  const good = await web.fieldMixup(page, { ...mixupOpts(`/fixed.html?profile=${profile()}`), cases: plus })
+  expect(good.passed).toBe(1)
+})
+
+const keepOpts = (url: string) => ({
+  reset: async (p: Page) => void (await p.goto(url)),
+  typed: { '#name': "Siobhán O'Brien", '#nick': 'Hedgehog', '#email': 'ren@example.com', '#notes': 'mealworms, never milk' },
+  wrong: { box: '#phone', value: '123 Main St, Apt 4' },
+  submit: async (p: Page) => p.locator('#save').click(),
+  saved: async (p: Page) => {
+    await p.waitForTimeout(300)
+    return savedOk(p)
+  },
+})
+
+test('✍️ keeps what was typed: CATCHES the form that wipes every box', async ({ page }) => {
+  const r = await web.keepsWhatWasTyped(page, { ...keepOpts(`/broken.html?profile=${profile()}`), throwOnFindings: false })
+  expect(r.findings.map((f) => f.where)).toEqual(['#name', '#nick', '#email', '#notes', '#phone'])
+  expect(r.findings.every((f) => f.caseId === 'form-keeps-input')).toBe(true)
+  expect(r.findings[0].human).toBe(
+    `One wrong box (#phone) and #name lost what was typed in it: "Siobhán O'Brien" became "". You fill in twelve boxes, get one wrong, press Save, and every box comes back empty.`,
+  )
+})
+
+test('✍️ keeps what was typed: PASSES the fixed form', async ({ page }) => {
+  const r = await web.keepsWhatWasTyped(page, keepOpts(`/fixed.html?profile=${profile()}`))
+  expect(r.passed).toBe(5)
+})
+
+test('✍️ keeps what was typed: a value the app ACCEPTS is skipped with a reason, not passed', async ({ page }) => {
+  const r = await web.keepsWhatWasTyped(page, { ...keepOpts(`/fixed.html?profile=${profile()}`), wrong: { box: '#phone', value: '(555) 123-4567' } })
+  expect(r.passed).toBe(0)
+  expect(r.skipped[0].reason).toMatch(/^the app saved "\(555\) 123-4567" in #phone, so there was no refusal to watch/)
+})
+
+const failOpts = (url: string) => ({
+  request: '/api/save',
+  reset: async (p: Page) => void (await p.goto(url)),
+  fillValid: async (p: Page) => p.locator('#name').fill('Ren'),
+  submit: async (p: Page) => p.locator('#save').click(),
+})
+
+test('💬 actionable errors: CATCHES "Save failed" and the "Saving…" that never ends', async ({ page }) => {
+  const r = await web.actionableErrors(page, { ...failOpts(`/broken.html?profile=${profile()}`), throwOnFindings: false })
+  const what = (w: string) => r.findings.filter((f) => f.where === w).map((f) => f.what.split(':')[0])
+  expect(what('the connection dropped mid-save')).toEqual(['uncaught', 'still says "Saving…"'])
+  expect(what('the server answered 500 with nothing in the body')).toEqual(['only stock phrases'])
+  expect(r.findings.find((f) => f.what.startsWith('only stock'))!.human).toMatch(
+    /^When the server answered 500 with nothing in the body, all the screen said was "Save failed"\. "Something went wrong" tells nobody what to do next\./,
+  )
+  expect(r.passed).toBe(0)
+})
+
+test('💬 actionable errors: PASSES the fixed form', async ({ page }) => {
+  const r = await web.actionableErrors(page, failOpts(`/fixed.html?profile=${profile()}`))
+  expect(r.passed).toBe(2) // the dropped connection AND the empty 500: each actually failed, each explained
+})
+
+test('💬 actionable errors: a request matcher that matches nothing is skipped, never passed', async ({ page }) => {
+  const r = await web.actionableErrors(page, { ...failOpts(`/fixed.html?profile=${profile()}`), request: '/api/nope', failures: ['offline'] })
+  expect(r.passed).toBe(0)
+  expect(r.skipped[0].reason).toMatch(/no request matched `request`/)
+})
+
+const slowOpts = (url: string) => ({
+  url,
+  request: '/api/save',
+  submit: async (p: Page) => p.locator('#save').click(),
+  fillValid: async (p: Page) => p.locator('#name').fill('Ren'),
+})
+
+test('🏨 hotel wifi: CATCHES the save that gives up after 2.5s and says "Saving…" forever', async ({ page }) => {
+  test.slow()
+  const r = await web.slowNetwork(page, { ...slowOpts(`/broken.html?profile=${profile()}`), throwOnFindings: false })
+  expect(r.findings.every((f) => f.caseId === 'hotel-wifi')).toBe(true)
+  expect(r.findings.some((f) => f.where === 'saving' && f.what.startsWith('uncaught'))).toBe(true)
+  expect(r.findings.some((f) => f.what === 'still says "Saving…"')).toBe(true)
+  // it DID say it was working right after the press (fair is fair): the failure is at the end, not the start
+  expect(r.findings.some((f) => f.where === 'right after pressing submit')).toBe(false)
+})
+
+test('🏨 hotel wifi: PASSES the fixed form', async ({ page }) => {
+  test.slow()
+  const r = await web.slowNetwork(page, slowOpts(`/fixed.html?profile=${profile()}`))
+  expect(r.passed).toBe(3) // loaded, said it was working, finished with an answer
+  await expect(page.locator('#status')).toHaveText('Saved ✓')
+})
+
+test('🏨 hotel wifi: a button that does nothing visible while it waits is caught', async ({ page }) => {
+  await page.goto(`/fixed.html?profile=${profile()}`) // any real origin, so fetch has somewhere to go
+  await page.route('**/slow-save', (route) => route.fulfill({ status: 200, body: 'ok' }))
+  await page.setContent(`<button id="b" onclick="fetch('/slow-save').then(() => document.getElementById('s').textContent = 'Saved')">Save</button><span id="s"></span>`)
+  const r = await web.slowNetwork(page, { request: '/slow-save', submit: async (p) => p.locator('#b').click(), delayMs: 1500, throwOnFindings: false })
+  expect(r.findings.map((f) => f.where)).toEqual(['right after pressing submit'])
+  expect(r.passed).toBe(1) // it did finish, with an answer
+})
+
+test('🪙 0.1 + 0.2: CATCHES $0.30000000000000004, PASSES $0.30', async ({ page }) => {
+  await page.goto(`/broken.html?profile=${profile()}`)
+  const bad = await web.floatingPointCheck(page, { throwOnFindings: false })
+  expect(bad.findings.map((f) => f.what)).toEqual(['0.30000000000000004 in "$0.30000000000000004"'])
+  expect(bad.findings[0].caseId).toBe('float-money')
+  await page.goto(`/fixed.html?profile=${profile()}`)
+  const good = await web.floatingPointCheck(page)
+  expect(good.passed).toBeGreaterThanOrEqual(1) // it found the fee, and the fee was fine
+  // the crumbs pattern: real artifacts yes, ordinary decimals no
+  const crumbs = (s: string) => (s.match(FLOAT_CRUMBS) ?? []).length
+  expect([crumbs('0.30000000000000004'), crumbs('0.7999999999999999'), crumbs('1.1000000000000001')]).toEqual([1, 1, 1])
+  expect([crumbs('$0.30'), crumbs('3.14159265'), crumbs('1.000000'), crumbs('51.5074')]).toEqual([0, 0, 0, 0])
+})
+
+test('🪙 0.1 + 0.2: a page with no decimals is skipped with a reason, not passed', async ({ page }) => {
+  await page.setContent('<p>Hedgehogs: 3</p>')
+  const r = await web.floatingPointCheck(page)
+  expect(r.passed).toBe(0)
+  expect(r.skipped[0].reason).toMatch(/^no decimal numbers on screen/)
 })

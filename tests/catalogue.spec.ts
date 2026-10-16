@@ -66,7 +66,7 @@ export function renderCatalogue(): string {
     `- ${SOURCE_WORDS['rens-list']}: **${count('rens-list')}**. On the list of things Ren types into every box by hand. No single recorded incident.`,
     `- ${SOURCE_WORDS.widespread}: **${count('widespread')}**. Ren hits it across many apps, not one of ours.`,
     `- ${SOURCE_WORDS.advocacy}: **${count('advocacy')}**. Ren named it from decades of disability-rights work, answering someone who left it out. Not an incident in our apps: a person telling you who your app forgot.`,
-    `- ${SOURCE_WORDS.community}: **${count('community')}**. A commenter on r/AskVibecoders, replying to Ren. Good idea, no incident on file.`,
+    `- ${SOURCE_WORDS.community}: **${count('community')}**. Someone outside the house: a commenter replying to Ren, or a public list someone posted. The entry says who and where. Good idea, no incident on file.`,
     `- ${SOURCE_WORDS.generic}: **${count('generic')}**. Plain best practice, labelled so nobody mistakes it for a war story.`,
     '',
   ]

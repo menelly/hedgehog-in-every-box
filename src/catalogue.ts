@@ -15,8 +15,10 @@
  *                      usually in public, answering someone who'd left it
  *                      out. Not an incident in our apps: a person telling you
  *                      who your app forgot.
- *       'community'  → suggested by someone replying to Ren's post about this
- *                      habit. Good idea, no incident on file.
+ *       'community'  → suggested by someone outside the house: a commenter
+ *                      replying to Ren, or a public list someone posted.
+ *                      The note says who and where. Good idea, no incident
+ *                      on file.
  *       'generic'    → plain best practice (often a WCAG criterion). Labelled
  *                      so nobody mistakes it for a war story.
  *
@@ -103,6 +105,9 @@ export const LONG_PASTE = (() => {
   if (s.length !== 5000) throw new Error(`long paste is ${s.length} long, wanted 5000`)
   return s
 })()
+
+/** 📝 Mark Ajzenstadt's list (X, October 2026): what a vibe-coded app needs before customers */
+const MARDEHAYM = "Mark Ajzenstadt (@mardehaym) on X (October 2026), in a list of what a vibe-coded app needs before it touches a paying customer."
 
 const WALK = 'walkEveryTextbox: no crash, no console error, the box holds it, and (with roundTrip) save → reload → same string'
 
@@ -499,6 +504,14 @@ export const CATALOGUE: Case[] = [
     check: 'run the suite twice with timezoneId: "Pacific/Kiritimati" and "Pacific/Pago_Pago"',
     provenance: { source: 'generic' },
   },
+  {
+    id: 'float-money',
+    kind: 'number-date',
+    title: '0.1 + 0.2 on a price',
+    why: 'Computers add 0.1 and 0.2 and get 0.30000000000000004. On a price or a total it looks like a broken app, and a person deciding whether to trust you with their card notices. Keep money in whole cents, and format it for display.',
+    check: 'floatingPointCheck(page, { run }): every number on screen and in every box, flagged if its decimals carry a run of 8 or more zeros (then a stray digit) or nines. It finds the crumbs, not wrong sums: a total that is off by a whole cent looks fine to it',
+    provenance: { source: 'community', note: MARDEHAYM },
+  },
 
   // ───────────────────────────── 🔀 WRONG FIELD ─────────────────────────────
   {
@@ -522,6 +535,17 @@ export const CATALOGUE: Case[] = [
     why: 'Same slip, other box. If it saves, you have a contact you can never email.',
     check: 'fieldMixup',
     provenance: { source: 'generic' },
+  },
+  {
+    id: 'plus-sign-email',
+    kind: 'wrong-field',
+    title: 'an email address with a plus sign in it',
+    text: 'ren+hedgehogs@example.com',
+    field: 'email',
+    expect: 'accept',
+    why: 'Plenty of people sign up as ren+shopname@… to sort their mail, or to find out who sold their address. It is a valid email address. A form that calls it invalid locks them out, or makes them hand over the plain address they were trying to protect.',
+    check: 'fieldMixup (expect accept)',
+    provenance: { source: 'community', note: MARDEHAYM },
   },
   {
     id: 'email-in-name',
@@ -680,6 +704,33 @@ export const CATALOGUE: Case[] = [
     why: 'Sync tools, disk errors, a person hand-editing a file. The app should refuse loudly and point at a backup, not load garbage or a blank screen.',
     check: 'write junk into localStorage/IndexedDB (or a copy of the data file), reload, expect a readable error',
     provenance: { source: 'community', note: "A commenter on r/AskVibecoders, replying to Ren (Sept 2026): modify the app's data files from outside the app, then see what it does." },
+  },
+  // ── 📝 from Mark Ajzenstadt's list of what a vibe-coded app needs before customers ──
+  // Only the ones a browser can actually see. His list also had a lot this package
+  // doesn't test and won't pretend to (SSO, backups, billing, compliance).
+  {
+    id: 'form-keeps-input',
+    kind: 'interaction',
+    title: 'one box is wrong and the whole form is wiped',
+    why: 'You fill in twelve boxes, get one wrong, press Save, and every box comes back empty. On a phone, with one hand, or on a day your body only has so much typing in it, that is the moment people give up. Keep what they typed, and put the problem next to the one box.',
+    check: 'keepsWhatWasTyped(page, { typed, wrong, submit }): fill every box, make one wrong, submit; every box must still hold what was typed, the wrong one included (fixing one character beats retyping it)',
+    provenance: { source: 'community', note: MARDEHAYM },
+  },
+  {
+    id: 'actionable-errors',
+    kind: 'interaction',
+    title: '"something went wrong"',
+    why: '"Something went wrong" tells nobody what to do next. Did it save? Should they wait, try again, or ring someone? A message a person can act on says what happened, whether their work is safe, and what to do now.',
+    check: 'actionableErrors(page, { submit, request }): makes the save fail (the connection drops, then the server answers 500), then reads what appeared on screen. Flags nothing at all, a "Saving…" that never stops, or only stock phrases ("Something went wrong", "Error", "Save failed", "undefined"). It can\'t tell whether a specific message is TRUE; a person still has to read it',
+    provenance: { source: 'community', note: MARDEHAYM },
+  },
+  {
+    id: 'hotel-wifi',
+    kind: 'interaction',
+    title: 'hotel wifi',
+    why: 'Hotel, hospital and train wifi, a rural phone signal, a cheap data plan: requests take seconds, not milliseconds. An app only ever tried on fast office internet times out, freezes with no sign it is working, or never says whether it saved, and the person presses the button again or gives up.',
+    check: 'slowNetwork(page, { url, submit, request, delayMs }): every request held back (4 s by default); the page must load without throwing, something must say it is working within half a second of the press, and it must finish with an answer, not "Saving…" forever. A simulation: a real bad connection also drops and reorders things',
+    provenance: { source: 'community', note: MARDEHAYM },
   },
 
   // ───────────────────────────── 🌀 THINGS THAT MOVE THAT SHOULDN'T ─────────────────────────────
