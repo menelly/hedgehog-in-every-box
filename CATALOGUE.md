@@ -2,13 +2,13 @@
 
 *Generated from `src/catalogue.ts` by `npm run catalogue`. Edit the source, not this file.*
 
-**76 cases.** Where each one came from:
+**81 cases.** Where each one came from:
 
 - 🧾 incident: **15**. It broke one of our real apps; the entry names the app and the month.
 - 🦔 Ren's list: **9**. On the list of things Ren types into every box by hand. No single recorded incident.
 - 🌐 widespread: **2**. Ren hits it across many apps, not one of ours.
 - 🗣️ Ren's advocacy: **4**. Ren named it from decades of disability-rights work, answering someone who left it out. Not an incident in our apps: a person telling you who your app forgot.
-- 💬 community: **6**. A commenter on r/AskVibecoders, replying to Ren. Good idea, no incident on file.
+- 💬 community: **11**. Someone outside the house: a commenter replying to Ren, or a public list someone posted. The entry says who and where. Good idea, no incident on file.
 - 📘 generic: **40**. Plain best practice, labelled so nobody mistakes it for a war story.
 
 ## 🧑 Names
@@ -286,6 +286,13 @@
 - **How it's checked:** run the suite twice with timezoneId: "Pacific/Kiritimati" and "Pacific/Pago_Pago"
 - **Where we learned it:** 📘 generic
 
+### 0.1 + 0.2 on a price `float-money`
+
+- **Input:** *(an action)*
+- **Why a real person does this:** Computers add 0.1 and 0.2 and get 0.30000000000000004. On a price or a total it looks like a broken app, and a person deciding whether to trust you with their card notices. Keep money in whole cents, and format it for display.
+- **How it's checked:** floatingPointCheck(page, { run }): every number on screen and in every box, flagged if its decimals carry a run of 8 or more zeros (then a stray digit) or nines. It finds the crumbs, not wrong sums: a total that is off by a whole cent looks fine to it
+- **Where we learned it:** 💬 community. Mark Ajzenstadt (@mardehaym) on X (October 2026), in a list of what a vibe-coded app needs before it touches a paying customer.
+
 ## 🔀 The wrong field
 
 *Applies to: every platform.*
@@ -303,6 +310,13 @@
 - **Why a real person does this:** Same slip, other box. If it saves, you have a contact you can never email.
 - **How it's checked:** fieldMixup
 - **Where we learned it:** 📘 generic
+
+### an email address with a plus sign in it `plus-sign-email`
+
+- **Input:** `ren+hedgehogs@example.com` into the **email** box, and a good app should **accept** it
+- **Why a real person does this:** Plenty of people sign up as ren+shopname@… to sort their mail, or to find out who sold their address. It is a valid email address. A form that calls it invalid locks them out, or makes them hand over the plain address they were trying to protect.
+- **How it's checked:** fieldMixup (expect accept)
+- **Where we learned it:** 💬 community. Mark Ajzenstadt (@mardehaym) on X (October 2026), in a list of what a vibe-coded app needs before it touches a paying customer.
 
 ### an email address in the name box `email-in-name`
 
@@ -407,6 +421,27 @@
 - **Why a real person does this:** Sync tools, disk errors, a person hand-editing a file. The app should refuse loudly and point at a backup, not load garbage or a blank screen.
 - **How it's checked:** write junk into localStorage/IndexedDB (or a copy of the data file), reload, expect a readable error
 - **Where we learned it:** 💬 community. A commenter on r/AskVibecoders, replying to Ren (Sept 2026): modify the app's data files from outside the app, then see what it does.
+
+### one box is wrong and the whole form is wiped `form-keeps-input`
+
+- **Input:** *(an action)*
+- **Why a real person does this:** You fill in twelve boxes, get one wrong, press Save, and every box comes back empty. On a phone, with one hand, or on a day your body only has so much typing in it, that is the moment people give up. Keep what they typed, and put the problem next to the one box.
+- **How it's checked:** keepsWhatWasTyped(page, { typed, wrong, submit }): fill every box, make one wrong, submit; every box must still hold what was typed, the wrong one included (fixing one character beats retyping it)
+- **Where we learned it:** 💬 community. Mark Ajzenstadt (@mardehaym) on X (October 2026), in a list of what a vibe-coded app needs before it touches a paying customer.
+
+### "something went wrong" `actionable-errors`
+
+- **Input:** *(an action)*
+- **Why a real person does this:** "Something went wrong" tells nobody what to do next. Did it save? Should they wait, try again, or ring someone? A message a person can act on says what happened, whether their work is safe, and what to do now.
+- **How it's checked:** actionableErrors(page, { submit, request }): makes the save fail (the connection drops, then the server answers 500), then reads what appeared on screen. Flags nothing at all, a "Saving…" that never stops, or only stock phrases ("Something went wrong", "Error", "Save failed", "undefined"). It can't tell whether a specific message is TRUE; a person still has to read it
+- **Where we learned it:** 💬 community. Mark Ajzenstadt (@mardehaym) on X (October 2026), in a list of what a vibe-coded app needs before it touches a paying customer.
+
+### hotel wifi `hotel-wifi`
+
+- **Input:** *(an action)*
+- **Why a real person does this:** Hotel, hospital and train wifi, a rural phone signal, a cheap data plan: requests take seconds, not milliseconds. An app only ever tried on fast office internet times out, freezes with no sign it is working, or never says whether it saved, and the person presses the button again or gives up.
+- **How it's checked:** slowNetwork(page, { url, submit, request, delayMs }): every request held back (4 s by default); the page must load without throwing, something must say it is working within half a second of the press, and it must finish with an answer, not "Saving…" forever. A simulation: a real bad connection also drops and reorders things
+- **Where we learned it:** 💬 community. Mark Ajzenstadt (@mardehaym) on X (October 2026), in a list of what a vibe-coded app needs before it touches a paying customer.
 
 ## 🌀 Things that move that shouldn't
 

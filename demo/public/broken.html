@@ -50,6 +50,7 @@
   <div class="tips"><div class="strip" id="strip"><span class="tip">Tip: hedgehogs like mealworms.</span><span class="tip">Tip: never give them milk.</span><span class="tip">Tip: they roll up when scared.</span></div></div>
 
   <p>Membership tier: <span class="tag">Hedgehog-approved platinum</span> <span class="narrow">Hedgehogs</span></p>
+  <p>Joining fee $0.10 + mealworm fund $0.20 = <span id="fee"></span></p>
 
   <form id="form">
     <div id="hint-slot"></div>
@@ -110,6 +111,9 @@
   const $ = (id) => document.getElementById(id)
   const fields = ['name', 'nick', 'email', 'phone', 'website', 'zip', 'notes']
 
+  // 🐛 float-money: dollars added as floating point, so the total reads $0.30000000000000004
+  $('fee').textContent = '$' + (0.1 + 0.2)
+
   // 🐛 layout-shift: a promo "image" with no reserved size arrives after load and shoves everything down
   setTimeout(() => { $('banner-slot').innerHTML = '<div id="banner" style="height:200px">🎉 New! Hedgehogs now supported.</div>' }, 300)
 
@@ -142,10 +146,14 @@
   $('form').addEventListener('submit', async (e) => {
     e.preventDefault()
     const phone = $('phone').value
+    const email = $('email').value
     // 🐛 address-in-phone + native-dialogs: refuses with alert(), which some app shells never show
     // 🐛 phone-human-formats: demands exactly ten bare digits
-    if (phone && /[a-z]/i.test(phone)) return alert('Phone numbers cannot have letters')
-    if (phone && !/^\d{10}$/.test(phone)) return alert('Phone must be 10 digits')
+    // 🐛 form-keeps-input: and on the way out, it wipes EVERY box, so the person types it all again
+    if (phone && /[a-z]/i.test(phone)) { $('form').reset(); return alert('Phone numbers cannot have letters') }
+    if (phone && !/^\d{10}$/.test(phone)) { $('form').reset(); return alert('Phone must be 10 digits') }
+    // 🐛 plus-sign-email: a home-made "email" pattern with no + in it, so ren+hedgehogs@example.com is "invalid"
+    if (email && !/^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]+$/i.test(email)) { $('status').textContent = 'Please enter a valid email.'; return }
     // 🐛 double-submit: the button stays live while saving
     $('status').textContent = 'Saving…'
     const v = Object.fromEntries(fields.map((f) => [f, $(f).value]))
@@ -154,7 +162,10 @@
     // 🐛 long-paste: notes silently cut to 1,000 characters
     const body = '{"name":"' + v.name + '","nick":"' + v.nick + '","email":"' + v.email + '","phone":"' + v.phone +
       '","website":"' + v.website + '","zip":' + (Number(v.zip) || 0) + ',"notes":"' + v.notes.slice(0, 1000).replace(/\n/g, '\\n') + '"}'
-    const r = await fetch('/api/save?key=' + encodeURIComponent(key), { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+    // 🐛 hotel-wifi: gives up after 2.5 seconds ("it's always instant on my fiber"), and nothing catches it,
+    //    so on a slow connection the page throws and says "Saving…" forever
+    // 🐛 actionable-errors: a dropped connection isn't caught either; a server error just says "Save failed"
+    const r = await fetch('/api/save?key=' + encodeURIComponent(key), { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(2500) })
     if (r.ok) $('status').textContent = 'Saved ✓'
     else { $('status').textContent = 'Save failed'; console.error('save failed', await r.text()) }
   })

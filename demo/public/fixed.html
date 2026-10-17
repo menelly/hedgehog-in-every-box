@@ -50,6 +50,7 @@
   <button type="button" id="next-tip">Next tip</button>
 
   <p>Membership tier: <span class="tag">Hedgehog-approved platinum</span></p>
+  <p>Joining fee $0.10 + mealworm fund $0.20 = <span id="fee"></span></p>
 
   <form id="form" novalidate>
     <p id="hint" aria-live="polite"></p>
@@ -111,6 +112,10 @@
   const key = params.get('profile') ?? 'demo'
   const $ = (id) => document.getElementById(id)
   const fields = ['name', 'nick', 'email', 'phone', 'website', 'zip', 'notes']
+  // ✅ float-money: money in whole cents, formatted only for display
+  const feeCents = 10 + 20
+  $('fee').textContent = '$' + (feeCents / 100).toFixed(2)
+
   const tips = ['Tip: hedgehogs like mealworms.', 'Tip: never give them milk.', 'Tip: they roll up when scared.']
   let tip = 0
   $('next-tip').addEventListener('click', () => { tip = (tip + 1) % tips.length; $('tip').textContent = tips[tip] })
@@ -156,7 +161,9 @@
     if (w && !/^[a-z][a-z0-9+.-]*:\/\//i.test(w)) v.website = 'https://' + w
     try {
       const r = await fetch('/api/save?key=' + encodeURIComponent(key), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(v) })
-      $('status').textContent = r.ok ? 'Saved ✓' : 'Save failed: ' + (await r.json()).error
+      // ✅ actionable-errors: say what happened, that their typing is safe, and what to do (even when the server says nothing)
+      const reason = r.ok ? null : (await r.json().catch(() => null))?.error
+      $('status').textContent = r.ok ? 'Saved ✓' : `Not saved: ${reason ?? `the server had a problem (${r.status})`}. Your typing is still here; try Save again in a minute.`
     } catch (err) {
       $('status').textContent = 'Save failed: the connection dropped. Your typing is still here.'
     } finally {

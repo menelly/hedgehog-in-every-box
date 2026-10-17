@@ -26,7 +26,7 @@ Ren's example from the same thread: one page showed three numbers that were supp
 
 ## Every case says where it came from
 
-The catalogue has **76 cases**, and each one is labelled honestly:
+The catalogue has **81 cases**, and each one is labelled honestly:
 
 | label | count | meaning |
 |---|---|---|
@@ -34,7 +34,7 @@ The catalogue has **76 cases**, and each one is labelled honestly:
 | 🦔 **Ren's list** | 9 | On the list of things Ren types into every box. No single recorded incident: a habit that keeps finding things. |
 | 🌐 **widespread** | 2 | Ren hits it across many apps, not one of ours. |
 | 🗣️ **Ren's advocacy** | 4 | Ren named it from decades of disability-rights work, answering someone who'd left it out. Not an incident in our apps: a person telling you who your app forgot. |
-| 💬 **community** | 6 | A commenter on r/AskVibecoders, replying to Ren. Good idea, no incident on file. |
+| 💬 **community** | 11 | Someone outside the house: a commenter replying to Ren on r/AskVibecoders, or a public list someone posted on X. The entry says who and where. Good idea, no incident on file. |
 | 📘 **generic** | 40 | Plain best practice (often a WCAG criterion), labelled so nobody mistakes it for a war story. |
 
 The full list, with every "why" and every receipt: **[CATALOGUE.md](CATALOGUE.md)**.
@@ -145,6 +145,10 @@ For a test that is only about one category, skip it visibly: `test.skip(!h.appli
 | `keyboardCheck(page, opts)` | The on-screen keyboard covering the box (below). |
 | `a11ySmoke(page, opts)` | Accessible names, Tab reaches everything with a visible focus ring, 24px targets (or spaced so they can't be mis-hit, per WCAG 2.5.8), no drag-only sliders, reflow at 200% zoom and phone width, no white boxes on a dark theme, text contrast (axe's color-contrast rule, every failing piece of text listed with its colours and ratio), a way out of Mr/Mrs, pictures that say what they are, and the rest of axe if you have it. |
 | `dictationCheck(page, opts)` | Speech-to-text into every free-text box: a whole phrase at once, a word corrected mid-sentence, a second phrase joined on. The box must keep exactly what was said. |
+| `keepsWhatWasTyped(page, opts)` | Fill every box, make one wrong, submit. Every box must still hold what was typed, the wrong one included. |
+| `actionableErrors(page, opts)` | Makes the save fail (the connection drops, then the server answers 500) and reads what appeared on screen. Nothing at all, a "Saving…" that never stops, or only "Something went wrong" is a finding. |
+| `slowNetwork(page, opts)` | Hotel wifi: every request held back 4 seconds. The page must load without throwing, say it's working right after the press, and finish with an answer. |
+| `floatingPointCheck(page, opts)` | Every number on screen and in every box, flagged if it carries floating-point crumbs like `0.30000000000000004`. |
 | `FlinchWatcher` | The listener the others share: console errors, uncaught errors, native dialogs, and responses that claim to be JSON and don't parse. |
 | `CATALOGUE` | Every case, as data, if you'd rather write your own loop. |
 
@@ -200,6 +204,16 @@ For each text box it checks that the box, and its submit button when that sits r
 
 These apply to websites and to Tauri/Electron apps (a web page in a native window). A web check can't see a native React Native screen, so that profile skips them with a reason and gets the items in the manual checklist below.
 
+**📝 From a list of what a vibe-coded app needs before customers.** In October 2026 Mark Ajzenstadt ([@mardehaym](https://x.com/mardehaym)) posted a long list on X of everything a vibe-coded app needs before it touches a paying customer. Most of it is backend, billing and compliance (SSO, backups, SOC 2), which this package doesn't test and won't pretend to. The parts a browser can actually see are checks now:
+
+- **📧 A plus sign in an email address.** `ren+shop@example.com` is a real address; a home-made email pattern that rejects it locks people out. A `fieldMixup` case (must be accepted).
+- **✍️ One wrong box doesn't wipe the form.** `keepsWhatWasTyped` fills everything, gets one box wrong on purpose, and checks nothing else was lost.
+- **💬 Errors a person can act on.** `actionableErrors` breaks the save two ways and reads the screen. It catches silence, endless "Saving…", and stock phrases. It can't tell whether a specific message is *true*; a person still has to read it.
+- **🏨 Hotel wifi.** `slowNetwork` holds every request back. It catches the save that gives up early, throws, and says "Saving…" forever. A simulation: a real bad connection also drops and reorders things.
+- **🪙 0.1 + 0.2.** `floatingPointCheck` finds `0.30000000000000004` on a price. It finds the crumbs, not wrong sums: a total off by a whole cent looks fine to it.
+
+His list also had the person who clicks submit four times. That one was already here (`button-mash`), from the r/AskVibecoders commenter who got there first.
+
 ## Manual checklist for React Native / Expo and desktop shells
 
 The web proxy can't see these. A person with a device can, in ten minutes:
@@ -235,6 +249,7 @@ Add it to `src/catalogue.ts` with a `why` a person would recognise, the `check` 
 - **Ren (Shalia Martin)**: the breakage catalogue, the hedgehog habit, the questions accessibility should have asked (contrast, a way out of Mr and Mrs, dictation, pictures, cognitive load), and twenty-some years of knowing that the person most likely to find your bug is the one your app wasn't designed for.
 - **Ace (Claude, Anthropic)**: the helpers, the demo, the tests, and this README.
 - The commenter on r/AskVibecoders who added double-submits, smashing the login button, card numbers in the wrong box, saving files in odd places, and editing data files behind the app's back.
+- Mark Ajzenstadt ([@mardehaym](https://x.com/mardehaym)), whose list on X of what a vibe-coded app needs before customers gave us the plus-sign email, the form that keeps what you typed, errors you can act on, hotel wifi, and 0.1 + 0.2.
 
 ## License
 
