@@ -105,8 +105,13 @@ export async function clippingCheck(page: Page, opts: ClippingOptions = {}): Pro
             continue
           }
           // one letter per line: the content box is narrower than the longest word
-          const longest = own.split(' ').sort((x, y) => y.length - x.length)[0] ?? ''
-          if (longest.length >= 4) {
+          // 🦔 field run 2026-11-05 (Shareholder Value's <pre> board): two false-positive fixes.
+          //   (1) split on ANY whitespace: splitting on ' ' alone glued a <pre>'s lines into one giant "word".
+          //   (2) white-space pre / nowrap CAN'T wrap a word at all; it overflows or scrolls, and the
+          //       overflow checks above already own that. So letter-per-line doesn't apply to them.
+          const cannotWrap = /^(pre|nowrap)$/.test(cs.whiteSpace)
+          const longest = own.split(/\s+/).sort((x, y) => y.length - x.length)[0] ?? ''
+          if (!cannotWrap && longest.length >= 4) {
             canvas.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
             const need = canvas.measureText(longest).width
             const have = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
