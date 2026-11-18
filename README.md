@@ -26,16 +26,16 @@ Ren's example from the same thread: one page showed three numbers that were supp
 
 ## Every case says where it came from
 
-The catalogue has **81 cases**, and each one is labelled honestly:
+The catalogue has **86 cases**, and each one is labelled honestly:
 
 | label | count | meaning |
 |---|---|---|
-| 🧾 **incident** | 15 | It broke one of our real apps. The entry names the app and the month. |
+| 🧾 **incident** | 19 | It broke one of our real apps. The entry names the app and the month. |
 | 🦔 **Ren's list** | 9 | On the list of things Ren types into every box. No single recorded incident: a habit that keeps finding things. |
 | 🌐 **widespread** | 2 | Ren hits it across many apps, not one of ours. |
 | 🗣️ **Ren's advocacy** | 4 | Ren named it from decades of disability-rights work, answering someone who'd left it out. Not an incident in our apps: a person telling you who your app forgot. |
 | 💬 **community** | 11 | Someone outside the house: a commenter replying to Ren on r/AskVibecoders, or a public list someone posted on X. The entry says who and where. Good idea, no incident on file. |
-| 📘 **generic** | 40 | Plain best practice (often a WCAG criterion), labelled so nobody mistakes it for a war story. |
+| 📘 **generic** | 41 | Plain best practice (often a WCAG criterion), labelled so nobody mistakes it for a war story. |
 
 The full list, with every "why" and every receipt: **[CATALOGUE.md](CATALOGUE.md)**.
 
@@ -141,9 +141,11 @@ For a test that is only about one category, skip it visibly: `test.skip(!h.appli
 | `survivesReload(page, opts)` | Work in progress survives a refresh, or is offered back. |
 | `roundTripValue(page, opts)` | One value saved and read back exactly. `00501` stays `00501`. |
 | `motionCheck(page, opts)` | Things that move that shouldn't (below). |
-| `clippingCheck(page, opts)` | Text that gets cut off (below). |
+| `clippingCheck(page, opts)` | Text that gets cut off, by overflow or by a shape (below). |
+| `overlapCheck(page, opts)` | Buttons, links, tabs and boxes sitting on top of each other, even when each one passes the size rule alone. Names which one a click in the overlap actually reaches. |
+| `prematureSubmitCheck(page, opts)` | The Export / Save / Submit button sitting above settings in the same flow that can't be seen from it, so it gets pressed before anyone meets them. |
 | `keyboardCheck(page, opts)` | The on-screen keyboard covering the box (below). |
-| `a11ySmoke(page, opts)` | Accessible names, Tab reaches everything with a visible focus ring, 24px targets (or spaced so they can't be mis-hit, per WCAG 2.5.8), no drag-only sliders, reflow at 200% zoom and phone width, no white boxes on a dark theme, text contrast (axe's color-contrast rule, every failing piece of text listed with its colours and ratio), a way out of Mr/Mrs, pictures that say what they are, and the rest of axe if you have it. |
+| `a11ySmoke(page, opts)` | Accessible names, Tab reaches everything with a visible focus ring, 24px targets (or spaced so they can't be mis-hit, per WCAG 2.5.8), no drag-only sliders, no drag-only handles on a canvas or overlay (Tab reaches them and the arrow keys move them, or a number box nudges them), reflow at 200% zoom and phone width, no white boxes on a dark theme, text contrast (axe's color-contrast rule, every failing piece of text listed with its colours and ratio), a way out of Mr/Mrs, pictures that say what they are, and the rest of axe if you have it. |
 | `dictationCheck(page, opts)` | Speech-to-text into every free-text box: a whole phrase at once, a word corrected mid-sentence, a second phrase joined on. The box must keep exactly what was said. |
 | `keepsWhatWasTyped(page, opts)` | Fill every box, make one wrong, submit. Every box must still hold what was typed, the wrong one included. |
 | `actionableErrors(page, opts)` | Makes the save fail (the connection drops, then the server answers 500) and reads what appeared on screen. Nothing at all, a "Saving…" that never stops, or only "Something went wrong" is a finding. |
@@ -176,7 +178,7 @@ Only dependency: `@playwright/test` (1.45 or later). `@axe-core/playwright` is o
 
 It reloads the page, so run it somewhere a reload is harmless.
 
-**✂️ Text that gets cut off.** A label that loses its last few letters can lose its meaning, and it gets worse when people turn up their font size, which is exactly who needs to read it. `clippingCheck` looks at every visible piece of text at normal size, with large text (root font size 200%), and at 200% zoom, and reports text hidden by overflow (its own or an ancestor's), ellipses that actually cut something (mark the ones you mean with `data-truncate-ok`), and boxes narrower than their longest word, which wrap one letter per line (three separate screens of one of our apps did that on a phone).
+**✂️ Text that gets cut off.** A label that loses its last few letters can lose its meaning, and it gets worse when people turn up their font size, which is exactly who needs to read it. `clippingCheck` looks at every visible piece of text at normal size, with large text (root font size 200%), and at 200% zoom, and reports text hidden by overflow (its own or an ancestor's), ellipses that actually cut something (mark the ones you mean with `data-truncate-ok`), boxes narrower than their longest word, which wrap one letter per line (three separate screens of one of our apps did that on a phone), and text **cut by a shape**: a ribbon's V-notch, a mask, or a decoration painted on top. That last one overflows nothing, so it hit-tests points across every line of text instead (see below).
 
 > **React Native / Expo note.** Ren has seen Android cut the last several letters off text in an Expo build. That's a known React Native Android quirk with some fonts, weights and text-break strategies, worse at large system font scales. **The web check is a proxy**: it can't see the native text renderer. The real fixes live in React Native: try `textBreakStrategy="simple"` on the `Text`, `includeFontPadding: false` in the style, don't set `numberOfLines` unless you mean it, let text wrap instead of fixing widths, and test on a real device with the system font scale turned up (Settings → Display → Font size, or `adb shell settings put system font_scale 2.0`).
 
@@ -214,6 +216,15 @@ These apply to websites and to Tauri/Electron apps (a web page in a native windo
 
 His list also had the person who clicks submit four times. That one was already here (`button-mash`), from the r/AskVibecoders commenter who got there first.
 
+**🔭 From a test-drive of a desktop app (spotted by Lumen).** In November 2026 we test-drove a Tauri desktop planner app of ours, live. **Lumen** (Gemini, he/him) read the screenshots and turned four things a person's eyes caught into checks that fit almost any web or desktop-shell app. None of them was caught by a test suite first.
+
+- **🎀 Text cut by a shape.** A label in a ribbon with a V-notch printed "Home" as "Homc". Nothing overflowed, so the overflow checks passed it. `clippingCheck` now hit-tests points across every line of text: hit-testing follows what is painted, so a point where the text can't be found (a `clip-path` or mask cut it away, or an SVG shape, a picture or a box with a background is painted on top) while the rest of the same text is fine is a cut. Decorations with `pointer-events: none` are found anyway. Text covered completely (a dialog over the page) is left alone: this is about the half-letter.
+- **🎯 Controls on top of each other.** A corner Home button sat on top of a side-rail tab. Each passed the 24px target-size check alone; together, part of the tab couldn't be clicked. `overlapCheck` compares what a person can actually see of every button, link, tab and form control, and flags any two that overlap. A small button drawn inside a text box (a clear ×) is a pattern, not a collision, and content scrolling under a fixed header isn't one either. Mark any other overlap you mean with `data-overlap-ok`.
+- **📤 The big button above the choices.** The Export button sat above the fold; the options that change the exported file were two scrolls below it. `prematureSubmitCheck` finds the primary action, scrolls it into view the way a person would meet it, and flags settings in the same flow below it that can't be seen from there. It can't know whether a setting *matters* to the button; mark the unrelated ones `data-hedgehog-unrelated`, or point it at your flow with `flow`.
+- **🖐️ Handles you can only drag.** The old drag-only slider rule, carried over to a canvas: a calibrator's grid lines, a crop corner, a split-pane divider. `a11ySmoke` finds anything with a move, grab or resize cursor (and `role="slider"` or `"separator"`), focuses it and presses the arrow keys. It must be reachable by Tab and actually move, or have a number box beside it. A handle drawn *on* a canvas, with no element of its own, can't be found this way: test that one by hand.
+
+And one lesson for anyone's tests, ours included: **`toBeVisible()` only means "has a box".** In the same session, a theme rule pushed a fixed-position toast about 1,700px off-screen, and `toBeVisible()` passed it. For anything a person must see, use `expect(locator).toBeInViewport()`. The hedgehog's own checks now follow the same rule: when `actionableErrors` and `slowNetwork` read what the screen said, words in a fixed box outside the window, or parked off the left or top edge, don't count (text further down the page still does, because a person can scroll to it). The proof suite keeps the trap as a test.
+
 ## Manual checklist for React Native / Expo and desktop shells
 
 The web proxy can't see these. A person with a device can, in ten minutes:
@@ -231,7 +242,7 @@ The web proxy can't see these. A person with a device can, in ten minutes:
 
 ## Run the proof yourself
 
-The repo includes a tiny demo app: the same sign-up form twice. `broken.html` has every bug we could fit from the catalogue, each marked 🐛 in the source; `fixed.html` has them fixed, each marked ✅. The test suite runs every helper against both and checks **both directions**: each helper must catch the specific planted bugs in the broken form, and must pass the fixed one having actually checked something.
+The repo includes a tiny demo app: the same sign-up form twice. `broken.html` has every bug we could fit from the catalogue, each marked 🐛 in the source; `fixed.html` has them fixed, each marked ✅. A second pair, `broken-planner.html` and `fixed-planner.html`, is a desktop-app window (a side rail, a ribbon, an export panel, a page calibrator and a toast) with the bugs from the desktop test-drive. The test suite runs every helper against both and checks **both directions**: each helper must catch the specific planted bugs in the broken form, and must pass the fixed one having actually checked something.
 
 ```bash
 npm install
@@ -249,6 +260,7 @@ Add it to `src/catalogue.ts` with a `why` a person would recognise, the `check` 
 - **Ren (Shalia Martin)**: the breakage catalogue, the hedgehog habit, the questions accessibility should have asked (contrast, a way out of Mr and Mrs, dictation, pictures, cognitive load), and twenty-some years of knowing that the person most likely to find your bug is the one your app wasn't designed for.
 - **Ace (Claude, Anthropic)**: the helpers, the demo, the tests, and this README.
 - The commenter on r/AskVibecoders who added double-submits, smashing the login button, card numbers in the wrong box, saving files in odd places, and editing data files behind the app's back.
+- **Lumen (Gemini)**, who read the screenshots of a desktop-app test-drive and turned what a person's eyes caught into four checks: text cut by a shape, controls on top of each other, the big button above the choices, and handles you can only drag. And the reminder that `toBeVisible()` only means "has a box".
 - Mark Ajzenstadt ([@mardehaym](https://x.com/mardehaym)), whose list on X of what a vibe-coded app needs before customers gave us the plus-sign email, the form that keeps what you typed, errors you can act on, hotel wifi, and 0.1 + 0.2.
 
 ## License

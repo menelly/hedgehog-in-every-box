@@ -13,11 +13,13 @@ import { CATALOGUE, KIND_PLATFORMS, type Kind } from './catalogue'
 import { a11ySmoke, type A11yOptions } from './a11y'
 import { clippingCheck, type ClippingOptions } from './clipping'
 import { dictationCheck, type DictationOptions } from './dictation'
+import { prematureSubmitCheck, type PrematureSubmitOptions } from './flow'
 import { comeBackTomorrow, doubleSubmit, roundTripValue, survivesReload, type ComeBackTomorrowOptions, type DoubleSubmitOptions, type RoundTripValueOptions, type SurvivesReloadOptions } from './interaction'
 import { keyboardCheck, type KeyboardOptions } from './keyboard'
 import { fieldMixup, type FieldMixupOptions } from './mixup'
 import { motionCheck, type MotionOptions } from './motion'
 import { floatingPointCheck, type FloatingPointOptions } from './numbers'
+import { overlapCheck, type OverlapOptions } from './overlap'
 import { notApplicable, resolvePlatforms, type CommonOptions } from './report'
 import { actionableErrors, keepsWhatWasTyped, slowNetwork, type ActionableErrorsOptions, type KeepsWhatWasTypedOptions, type SlowNetworkOptions } from './submit'
 import { walkEveryTextbox, type WalkOptions } from './walk'
@@ -35,6 +37,8 @@ export * from './a11y'
 export * from './dictation'
 export * from './submit'
 export * from './numbers'
+export * from './overlap'
+export * from './flow'
 
 const KIND_WORDS: Record<Kind, string> = {
   name: 'names',
@@ -86,5 +90,7 @@ export function hedgehog(defaults: CommonOptions = {}) {
     actionableErrors: (page: Page, o: ActionableErrorsOptions) => actionableErrors(page, { ...d, ...o }),
     slowNetwork: (page: Page, o: SlowNetworkOptions) => slowNetwork(page, { ...d, ...o }),
     floatingPointCheck: (page: Page, o: FloatingPointOptions = {}) => floatingPointCheck(page, { ...d, ...o }),
+    overlapCheck: (page: Page, o: OverlapOptions = {}) => overlapCheck(page, { ...d, ...o }),
+    prematureSubmitCheck: (page: Page, o: PrematureSubmitOptions = {}) => prematureSubmitCheck(page, { ...d, ...o }),
   }
 }

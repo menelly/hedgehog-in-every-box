@@ -9,7 +9,7 @@
  * "caught it" AND at "clean".
  */
 import { devices, expect, test, type Page } from '@playwright/test'
-import { CATALOGUE, FLOAT_CRUMBS, hedgehog, type Report } from '../src'
+import { CATALOGUE, FLOAT_CRUMBS, hedgehog, visibleTexts, type Report } from '../src'
 
 let n = 0
 const profile = () => `t${Date.now()}-${process.pid}-${n++}`
@@ -241,7 +241,7 @@ test('♿ a11y smoke: PASSES the fixed form (axe included)', async ({ page }) =>
 // ONE line. Ren answered with the questions it should have asked. These test those.
 
 /** a11ySmoke with only Ren's three page checks switched on */
-const rensQuestions = { skip: ['names', 'keyboard', 'targets', 'sliders', 'reflow', 'dark', 'axe'] as const }
+const rensQuestions = { skip: ['names', 'keyboard', 'targets', 'sliders', 'handles', 'reflow', 'dark', 'axe'] as const }
 const only = (r: Report, caseId: string) => r.findings.filter((f) => f.caseId === caseId)
 
 test('🗣️ contrast, honorifics, pictures: CATCHES the broken form', async ({ page }) => {
@@ -469,4 +469,136 @@ test('🪙 0.1 + 0.2: a page with no decimals is skipped with a reason, not pass
   const r = await web.floatingPointCheck(page)
   expect(r.passed).toBe(0)
   expect(r.skipped[0].reason).toMatch(/^no decimal numbers on screen/)
+})
+
+// ─────────────────── 🔭 from a desktop-app test-drive (Lumen, November 2026) ───────────────────
+// A live test-drive of a Tauri desktop planner app of ours. Lumen read the screenshots and turned
+// what a person's eyes caught into four checks (and one lesson for our own tests). The proof pages
+// are broken-planner.html and fixed-planner.html: a side rail, a ribbon, an export panel, a page
+// calibrator and a toast.
+
+test('✂️🎀 clipping by a shape: CATCHES the notched ribbon and the leaf on the heading', async ({ page }) => {
+  await page.goto('/broken-planner.html')
+  const r = await web.clippingCheck(page, { throwOnFindings: false })
+  const shape = only(r, 'shape-clipped-text')
+  // the ribbon's own clip-path cuts "Home", at every size
+  const ribbon = shape.filter((f) => f.where === 'div#ribbon.ribbon')
+  expect(ribbon.map((f) => f.what)).toEqual(['normal', 'large-text', 'zoom-200'].map((m) => `cut by the clip-path / mask on div#ribbon.ribbon (${m})`))
+  expect(ribbon[0].human).toMatch(/^Part of "Home" is cut away at normal size, by the clip-path \/ mask on div#ribbon\.ribbon, so a letter can read as a different one\./)
+  // a decorative SVG leaf painted over the end of the heading (pointer-events: none doesn't hide it from us)
+  expect(shape.some((f) => f.where === 'h2.flourished' && f.what === 'cut by ellipse, painted on top of it (normal)')).toBe(true)
+  // nothing overflowed, so the old checks had nothing to say about either one
+  expect(r.findings.filter((f) => /ribbon|flourished/.test(f.where) && f.caseId !== 'shape-clipped-text')).toEqual([])
+})
+
+test('✂️🎀 clipping by a shape: PASSES the fixed planner (label clear of the notch, leaf beside the heading)', async ({ page }) => {
+  await page.goto('/fixed-planner.html')
+  const r = await web.clippingCheck(page)
+  expect(r.passed).toBe(3)
+})
+
+test('🎯 overlap: CATCHES the corner Home button sitting on the first rail tab', async ({ page }) => {
+  await page.goto('/broken-planner.html')
+  const r = await web.overlapCheck(page, { throwOnFindings: false })
+  expect(r.findings.map((f) => f.where)).toEqual(['"Home" button × "Monthly" tab'])
+  expect(r.findings[0].caseId).toBe('controls-overlap')
+  expect(r.findings[0].what).toBe('overlap 48×36px, "Home" button wins')
+  expect(r.findings[0].human).toMatch(/^"Home" button sits on top of "Monthly" tab \(48×36px of overlap\), so a click there reaches "Home" button, and that part of "Monthly" tab can't be pressed\./)
+})
+
+test('🎯 overlap: PASSES the fixed planner, and the original fixed form', async ({ page }) => {
+  await page.goto('/fixed-planner.html')
+  expect((await web.overlapCheck(page)).passed).toBe(1)
+  // a second page it has never seen: the clear × beside the name box, the sticky footer, the slider
+  await page.goto(`/fixed.html?profile=${profile()}`)
+  expect((await web.overlapCheck(page)).passed).toBe(1)
+})
+
+test('🎯 overlap: a clear × inside a text box is a pattern, not a collision; data-overlap-ok is respected', async ({ page }) => {
+  await page.setContent(`
+    <div style="position:relative;width:240px"><label for="q">Search</label><input id="q" style="width:240px;height:32px;box-sizing:border-box">
+      <button aria-label="Clear" style="position:absolute;right:4px;bottom:4px;width:24px;height:24px">×</button></div>
+    <div data-overlap-ok style="position:relative;height:40px"><button style="position:absolute;left:0;width:60px">One</button><button style="position:absolute;left:30px;width:60px">Two</button></div>
+    <div style="position:relative;height:40px"><button style="position:absolute;left:0;width:60px">Three</button><button style="position:absolute;left:30px;width:60px">Four</button></div>`)
+  const r = await web.overlapCheck(page, { throwOnFindings: false })
+  expect(r.findings.map((f) => f.where)).toEqual(['"Three" button × "Four" button'])
+})
+
+test('📤 premature submit: CATCHES Export sitting above the options two scrolls down', async ({ page }) => {
+  await page.goto('/broken-planner.html')
+  const r = await web.prematureSubmitCheck(page, { throwOnFindings: false })
+  expect(r.findings).toHaveLength(1)
+  expect(r.findings[0].caseId).toBe('submit-above-options')
+  expect(r.findings[0].where).toBe('"Export"')
+  expect(r.findings[0].what).toBe('3 setting(s) below it, out of sight: "Paper size", "Include notes pages", "Margin (mm)"')
+  expect(r.findings[0].human).toMatch(/^"Export" sits above 3 settings in the same flow/)
+  // and it put the scroll back the way it found it
+  expect(await page.locator('section.export').evaluate((el) => el.scrollTop)).toBe(0)
+})
+
+test('📤 premature submit: PASSES the fixed planner (options first), and the original fixed form', async ({ page }) => {
+  await page.goto('/fixed-planner.html')
+  expect((await web.prematureSubmitCheck(page)).passed).toBe(1) // it found Export, scrolled to it, and nothing waits below
+  await page.goto(`/fixed.html?profile=${profile()}`)
+  expect((await web.prematureSubmitCheck(page)).passed).toBe(1) // Save, at the end of the form
+})
+
+test('📤 premature submit: a page with no primary action is skipped with a reason, not passed', async ({ page }) => {
+  await page.setContent('<label for="n">Note</label><input id="n"><button type="button">Cancel</button>')
+  const r = await web.prematureSubmitCheck(page)
+  expect(r.passed).toBe(0)
+  expect(r.skipped[0].reason).toMatch(/^no primary action found/)
+})
+
+/** a11ySmoke with only the drag-handle check switched on */
+const handlesOnly = { skip: ['names', 'keyboard', 'targets', 'sliders', 'reflow', 'dark', 'contrast', 'honorific', 'images', 'axe'] as ('names' | 'keyboard' | 'targets' | 'sliders' | 'reflow' | 'dark' | 'contrast' | 'honorific' | 'images' | 'axe')[] }
+
+test('🖐️ drag-only handles: CATCHES calibrator grid lines you can only drag', async ({ page }) => {
+  await page.goto('/broken-planner.html')
+  const r = await web.a11ySmoke(page, { ...handlesOnly, throwOnFindings: false })
+  expect(r.findings.map((f) => f.caseId)).toEqual(['drag-only-handle', 'drag-only-handle'])
+  expect(r.findings[0].what).toBe("a drag handle Tab can't reach, with no number box beside it")
+  expect(r.findings.map((f) => f.where)).toEqual(['ew-resize handle 1', 'ew-resize handle 2'])
+  expect(r.findings[0].human).toMatch(/^An unnamed ew-resize handle \(number 1 on the page\) can only be moved by dragging: Tab can't reach it/)
+})
+
+test('🖐️ drag-only handles: PASSES the fixed planner (one moves with the arrow keys, one has a number box)', async ({ page }) => {
+  await page.goto('/fixed-planner.html')
+  const r = await web.a11ySmoke(page, handlesOnly)
+  expect(r.passed).toBe(1)
+  // it pressed the arrow keys and then put the line back where it was
+  await expect(page.locator('#line1')).toHaveAttribute('aria-valuenow', '107')
+})
+
+test('🖐️ drag-only handles: a handle that takes focus but ignores the arrow keys is caught', async ({ page }) => {
+  await page.setContent(`<div style="position:relative;width:300px;height:100px">
+    <div role="slider" tabindex="0" aria-label="Crop edge" aria-valuenow="40" style="position:absolute;left:40px;width:24px;height:100px;cursor:ew-resize"></div></div>`)
+  const r = await web.a11ySmoke(page, { ...handlesOnly, throwOnFindings: false })
+  expect(r.findings.map((f) => `${f.where}: ${f.what}`)).toEqual(['"Crop edge": focusable, but the arrow keys don\'t move it'])
+})
+
+test('👀 toBeVisible only means "has a box": the off-screen toast passes it, and fails toBeInViewport', async ({ page }) => {
+  // the trap, kept as a test so nobody walks back into it
+  await page.goto('/broken-planner.html')
+  const toast = page.locator('.toast')
+  await expect(toast).toBeVisible() // ✓ … and nobody can see it
+  await expect(toast).not.toBeInViewport() // the assertion that tells the truth
+  expect((await toast.boundingBox())!.x).toBeGreaterThan(page.viewportSize()!.width) // wholly past the right edge
+  // the hedgehog's own "what is on screen" agrees: the toast doesn't count as said
+  expect(await visibleTexts(page)).not.toContain('Exported ✓ planner.pdf')
+
+  await page.goto('/fixed-planner.html')
+  await expect(page.locator('.toast')).toBeInViewport()
+  expect(await visibleTexts(page)).toContain('Exported ✓ planner.pdf')
+})
+
+test('✂️🎀 clipping by a shape: a bookmark ribbon notched at the bottom, label too low vs clear of the notch', async ({ page }) => {
+  // the other common ribbon: notched at the bottom like a bookmark, the label sitting low in it
+  const ribbon = (padBottom: string) =>
+    `<div id="r" style="width:72px;height:44px;box-sizing:border-box;display:inline-flex;align-items:flex-end;justify-content:center;padding-bottom:${padBottom};background:#2a6;color:#fff;font:600 16px/18px system-ui;clip-path:polygon(0 0,100% 0,100% 100%,50% 82%,0 100%)">Home</div>`
+  await page.setContent(ribbon('0px'))
+  const low = await web.clippingCheck(page, { modes: ['normal'], throwOnFindings: false })
+  expect(low.findings.map((f) => f.what)).toEqual(['cut by the clip-path / mask on div#r (normal)'])
+  await page.setContent(ribbon('12px'))
+  expect((await web.clippingCheck(page, { modes: ['normal'] })).passed).toBe(1)
 })

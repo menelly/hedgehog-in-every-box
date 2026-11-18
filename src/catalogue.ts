@@ -111,6 +111,18 @@ const MARDEHAYM = "Mark Ajzenstadt (@mardehaym) on X (October 2026), in a list o
 
 const WALK = 'walkEveryTextbox: no crash, no console error, the box holds it, and (with roundTrip) save → reload → same string'
 
+/**
+ * 🔭 A live test-drive of one of our desktop apps (November 2026). Lumen (Gemini, he/him) read the
+ * screenshots and turned what a person's eyes caught into checks that fit almost any app. Every
+ * one of these was a real bug on screen; none of them was caught by a test suite first.
+ */
+const TEST_DRIVE = {
+  source: 'incident',
+  app: 'a Tauri desktop planner app of ours',
+  when: 'November 2026',
+  foundBy: 'Lumen (Gemini), reading screenshots from a live test-drive; he proposed the check',
+} as const
+
 export const CATALOGUE: Case[] = [
   // ───────────────────────────── 🧑 NAMES ─────────────────────────────
   {
@@ -732,6 +744,23 @@ export const CATALOGUE: Case[] = [
     check: 'slowNetwork(page, { url, submit, request, delayMs }): every request held back (4 s by default); the page must load without throwing, something must say it is working within half a second of the press, and it must finish with an answer, not "Saving…" forever. A simulation: a real bad connection also drops and reorders things',
     provenance: { source: 'community', note: MARDEHAYM },
   },
+  // ── 🔭 from a desktop-app test-drive (Lumen, November 2026) ──
+  {
+    id: 'submit-above-options',
+    kind: 'interaction',
+    title: 'the Export button above the options that change it',
+    why: 'People press the big button they can see. If the options that change what it does (paper size, what to include, margins) sit two scrolls below it, plenty of people never meet them: they export with the defaults, get the wrong thing, and don\'t know why. Put the button after the choices it depends on.',
+    check: 'prematureSubmitCheck: finds the primary action (submit, or a button called Export, Save, Send, Generate, Download, Print…), scrolls it into view the way a person would meet it, and flags settings in the same flow that sit below it and can\'t be seen from there',
+    provenance: { ...TEST_DRIVE, what: 'The Export button sat above the fold, while options that change the exported file lived two scrolls below it.' },
+  },
+  {
+    id: 'message-off-screen',
+    kind: 'interaction',
+    title: 'a message nobody can see',
+    why: 'A toast, a "Saved", or an error that is pushed outside the window says nothing to the person in front of it. A test that only asks whether the message "is visible" is asking whether it has a box, and a box 1,700 pixels off the edge has one.',
+    check: 'actionableErrors and slowNetwork only count text a person could actually see: words in a fixed box pushed outside the window, or parked off the left or top edge, don\'t count. In your own tests, use expect(locator).toBeInViewport() for anything a person must see; toBeVisible() only means "has a box"',
+    provenance: { ...TEST_DRIVE, what: 'A theme rule pushed a fixed-position toast about 1,700px off-screen. The suite\'s toBeVisible() assertion passed it anyway.', foundBy: 'the same test-drive session; the suite had passed it' },
+  },
 
   // ───────────────────────────── 🌀 THINGS THAT MOVE THAT SHOULDN'T ─────────────────────────────
   {
@@ -838,6 +867,14 @@ export const CATALOGUE: Case[] = [
       foundBy: "Ren's hostile QA pass",
     },
   },
+  {
+    id: 'shape-clipped-text',
+    kind: 'clipping',
+    title: 'a shape cuts the last letter off',
+    why: 'A label inside a ribbon, a notched tab or a badge with a fancy edge can lose part of a letter to the shape, and "Home" reads as "Homc". Nothing overflows, so the usual "is the text too big for its box" check never fires. Only the shape knows.',
+    check: 'clippingCheck hit-tests points across every line of text: a point the text can\'t be found at, because a clip-path or mask on it (or an ancestor) cut it away, or because a painted sibling (an SVG shape, a picture, a box with a background) sits on top of it, while other points of the same text are fine, is a cut. Mark the ones you mean with data-truncate-ok',
+    provenance: { ...TEST_DRIVE, what: 'A section label inside a ribbon with a V-notch printed "Home" as "Homc": the notch sliced into the last letter. No overflow fired, so the existing check passed it. The labels now clear the notch.' },
+  },
 
   // ───────────────────────────── 📱 THE KEYBOARD COVERS THE BOX ─────────────────────────────
   {
@@ -901,6 +938,22 @@ export const CATALOGUE: Case[] = [
       what: 'The tap-target-size setting was a slider with no number box, in an app whose audience is disabled sellers. A numeric input was added next to it.',
       foundBy: "Ren's hostile QA pass",
     },
+  },
+  {
+    id: 'drag-only-handle',
+    kind: 'accessibility',
+    title: 'a handle you can only drag',
+    why: 'The slider rule, on a canvas: a grid line, a crop corner or a calibration marker that only moves when you drag it with a mouse. Dragging precisely is the hardest fine-motor task on a screen, and impossible with a keyboard or a switch. Arrow keys, or a number box that nudges it, cost very little.',
+    check: 'a11ySmoke finds drag handles (anything styled with a move, grab or resize cursor, and role="slider" or "separator"), focuses each one, and presses the arrow keys. It must be reachable by Tab and move (or change its aria-valuenow), or have a number box beside it',
+    provenance: { source: 'generic', note: 'WCAG 2.5.7 Dragging Movements, 2.1.1 Keyboard. Proposed by Lumen (Gemini) from a live test-drive of a Tauri desktop planner app of ours (November 2026), whose page calibrator moves grid lines by dragging handles on an overlay: the slider-only rule (from the same app, July 2026) carried over to the canvas. A rule he proposed, not a confirmed keyboard failure, so it is labelled generic.' },
+  },
+  {
+    id: 'controls-overlap',
+    kind: 'accessibility',
+    title: 'two buttons on top of each other',
+    why: 'Every button can pass the 24-pixel size rule on its own and still sit on top of another one. Then a tap meant for one lands on the other, and part of the one underneath can\'t be pressed at all. Hands with a tremor and thumbs on a phone find it first.',
+    check: 'overlapCheck compares the boxes of every visible button, link, tab and form control (what is actually visible of them, inside their scroll areas) and flags any two that overlap, naming which one a click in the overlap would actually reach. A box drawn inside a text box (a clear ×, a search icon) is a pattern, not a collision; mark any other overlap you mean with data-overlap-ok',
+    provenance: { ...TEST_DRIVE, what: 'A corner Home button sat on top of a tab on the side rail. Each passed the 24px target-size check alone; together, part of the tab could not be clicked.' },
   },
   {
     id: 'zoom-200',

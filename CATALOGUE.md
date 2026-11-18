@@ -2,14 +2,14 @@
 
 *Generated from `src/catalogue.ts` by `npm run catalogue`. Edit the source, not this file.*
 
-**81 cases.** Where each one came from:
+**86 cases.** Where each one came from:
 
-- 🧾 incident: **15**. It broke one of our real apps; the entry names the app and the month.
+- 🧾 incident: **19**. It broke one of our real apps; the entry names the app and the month.
 - 🦔 Ren's list: **9**. On the list of things Ren types into every box by hand. No single recorded incident.
 - 🌐 widespread: **2**. Ren hits it across many apps, not one of ours.
 - 🗣️ Ren's advocacy: **4**. Ren named it from decades of disability-rights work, answering someone who left it out. Not an incident in our apps: a person telling you who your app forgot.
 - 💬 community: **11**. Someone outside the house: a commenter replying to Ren, or a public list someone posted. The entry says who and where. Good idea, no incident on file.
-- 📘 generic: **40**. Plain best practice, labelled so nobody mistakes it for a war story.
+- 📘 generic: **41**. Plain best practice, labelled so nobody mistakes it for a war story.
 
 ## 🧑 Names
 
@@ -443,6 +443,20 @@
 - **How it's checked:** slowNetwork(page, { url, submit, request, delayMs }): every request held back (4 s by default); the page must load without throwing, something must say it is working within half a second of the press, and it must finish with an answer, not "Saving…" forever. A simulation: a real bad connection also drops and reorders things
 - **Where we learned it:** 💬 community. Mark Ajzenstadt (@mardehaym) on X (October 2026), in a list of what a vibe-coded app needs before it touches a paying customer.
 
+### the Export button above the options that change it `submit-above-options`
+
+- **Input:** *(an action)*
+- **Why a real person does this:** People press the big button they can see. If the options that change what it does (paper size, what to include, margins) sit two scrolls below it, plenty of people never meet them: they export with the defaults, get the wrong thing, and don't know why. Put the button after the choices it depends on.
+- **How it's checked:** prematureSubmitCheck: finds the primary action (submit, or a button called Export, Save, Send, Generate, Download, Print…), scrolls it into view the way a person would meet it, and flags settings in the same flow that sit below it and can't be seen from there
+- **Where we learned it:** 🧾 incident. **a Tauri desktop planner app of ours, November 2026.** The Export button sat above the fold, while options that change the exported file lived two scrolls below it. *Found by: Lumen (Gemini), reading screenshots from a live test-drive; he proposed the check.*
+
+### a message nobody can see `message-off-screen`
+
+- **Input:** *(an action)*
+- **Why a real person does this:** A toast, a "Saved", or an error that is pushed outside the window says nothing to the person in front of it. A test that only asks whether the message "is visible" is asking whether it has a box, and a box 1,700 pixels off the edge has one.
+- **How it's checked:** actionableErrors and slowNetwork only count text a person could actually see: words in a fixed box pushed outside the window, or parked off the left or top edge, don't count. In your own tests, use expect(locator).toBeInViewport() for anything a person must see; toBeVisible() only means "has a box"
+- **Where we learned it:** 🧾 incident. **a Tauri desktop planner app of ours, November 2026.** A theme rule pushed a fixed-position toast about 1,700px off-screen. The suite's toBeVisible() assertion passed it anyway. *Found by: the same test-drive session; the suite had passed it.*
+
 ## 🌀 Things that move that shouldn't
 
 *Applies to: every platform.*
@@ -514,6 +528,13 @@
 - **How it's checked:** clippingCheck (overflow) plus the long-name and long-paste strings in walkEveryTextbox
 - **Where we learned it:** 🧾 incident. **Chaos Compass, July 2026.** A long font name pushed the Size field outside its card (a grid item with min-width: auto). *Found by: Ren's hostile QA pass.*
 
+### a shape cuts the last letter off `shape-clipped-text`
+
+- **Input:** *(an action)*
+- **Why a real person does this:** A label inside a ribbon, a notched tab or a badge with a fancy edge can lose part of a letter to the shape, and "Home" reads as "Homc". Nothing overflows, so the usual "is the text too big for its box" check never fires. Only the shape knows.
+- **How it's checked:** clippingCheck hit-tests points across every line of text: a point the text can't be found at, because a clip-path or mask on it (or an ancestor) cut it away, or because a painted sibling (an SVG shape, a picture, a box with a background) sits on top of it, while other points of the same text are fine, is a cut. Mark the ones you mean with data-truncate-ok
+- **Where we learned it:** 🧾 incident. **a Tauri desktop planner app of ours, November 2026.** A section label inside a ribbon with a V-notch printed "Home" as "Homc": the notch sliced into the last letter. No overflow fired, so the existing check passed it. The labels now clear the notch. *Found by: Lumen (Gemini), reading screenshots from a live test-drive; he proposed the check.*
+
 ## 📱 The keyboard covers the box
 
 *Applies to: web-mobile, react-native.*
@@ -563,6 +584,20 @@
 - **Why a real person does this:** Dragging a slider precisely is the hardest fine-motor task on a screen. A number box next to it costs nothing.
 - **How it's checked:** a11ySmoke flags input[type=range] with no typeable number box beside it
 - **Where we learned it:** 🧾 incident. **Chaos Compass, July 2026.** The tap-target-size setting was a slider with no number box, in an app whose audience is disabled sellers. A numeric input was added next to it. *Found by: Ren's hostile QA pass.*
+
+### a handle you can only drag `drag-only-handle`
+
+- **Input:** *(an action)*
+- **Why a real person does this:** The slider rule, on a canvas: a grid line, a crop corner or a calibration marker that only moves when you drag it with a mouse. Dragging precisely is the hardest fine-motor task on a screen, and impossible with a keyboard or a switch. Arrow keys, or a number box that nudges it, cost very little.
+- **How it's checked:** a11ySmoke finds drag handles (anything styled with a move, grab or resize cursor, and role="slider" or "separator"), focuses each one, and presses the arrow keys. It must be reachable by Tab and move (or change its aria-valuenow), or have a number box beside it
+- **Where we learned it:** 📘 generic. WCAG 2.5.7 Dragging Movements, 2.1.1 Keyboard. Proposed by Lumen (Gemini) from a live test-drive of a Tauri desktop planner app of ours (November 2026), whose page calibrator moves grid lines by dragging handles on an overlay: the slider-only rule (from the same app, July 2026) carried over to the canvas. A rule he proposed, not a confirmed keyboard failure, so it is labelled generic.
+
+### two buttons on top of each other `controls-overlap`
+
+- **Input:** *(an action)*
+- **Why a real person does this:** Every button can pass the 24-pixel size rule on its own and still sit on top of another one. Then a tap meant for one lands on the other, and part of the one underneath can't be pressed at all. Hands with a tremor and thumbs on a phone find it first.
+- **How it's checked:** overlapCheck compares the boxes of every visible button, link, tab and form control (what is actually visible of them, inside their scroll areas) and flags any two that overlap, naming which one a click in the overlap would actually reach. A box drawn inside a text box (a clear ×, a search icon) is a pattern, not a collision; mark any other overlap you mean with data-overlap-ok
+- **Where we learned it:** 🧾 incident. **a Tauri desktop planner app of ours, November 2026.** A corner Home button sat on top of a tab on the side rail. Each passed the 24px target-size check alone; together, part of the tab could not be clicked. *Found by: Lumen (Gemini), reading screenshots from a live test-drive; he proposed the check.*
 
 ### 200% zoom (and a phone) `zoom-200`
 

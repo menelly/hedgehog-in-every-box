@@ -1,0 +1,87 @@
+<!doctype html>
+<!--
+  🔭 A desktop-app window, the kind a Tauri or Electron app shows: a side rail, a ribbon, an
+  export panel, a page calibrator and a toast. Every bug here is one a person's eyes caught in a
+  live test-drive of a real desktop planner app (November 2026), and Lumen turned into a check.
+  Each is marked 🐛. fixed-planner.html has them fixed, each marked ✅.
+-->
+<html lang="en" data-theme="midnight">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hedgehog Planner (BROKEN on purpose)</title>
+<style>
+  body { margin: 0; font-family: system-ui, sans-serif; font-size: 16px; }
+  /* 🐛 controls-overlap: the corner Home button is laid on top of the rail, so it covers the first tab */
+  .home { position: fixed; top: 8px; left: 8px; width: 48px; height: 40px; z-index: 2; background: #345; color: #fff; border: 0; font: inherit; font-size: 13px; }
+  .rail { position: fixed; top: 0; left: 0; width: 120px; height: 100vh; background: #dde; display: flex; flex-direction: column; }
+  .rail [role="tab"] { height: 44px; border: 0; background: #ccd; margin-bottom: 4px; font: inherit; text-align: right; padding-right: 10px; }
+  main { margin-left: 140px; padding: 12px 16px; }
+  /* 🐛 shape-clipped-text: a ribbon with a V-notch, and the label runs right into it ("Home" reads "Homc") */
+  .ribbon { display: inline-block; background: #b03a48; color: #fff; padding: 6px 2px 6px 10px; font-weight: 600; clip-path: polygon(0 0, 100% 0, 75% 50%, 100% 100%, 0 100%); }
+  /* 🐛 shape-clipped-text: a decorative leaf, laid over the end of the heading */
+  .flourished { position: relative; display: inline-block; margin: 16px 0 8px; font-size: 20px; }
+  .flourished svg { position: absolute; right: -6px; top: 0; width: 40px; height: 100%; pointer-events: none; }
+  /* 🐛 submit-above-options: the Export button first, the options that change the file two scrolls down */
+  .export { height: 220px; overflow: auto; border: 1px solid #999; padding: 8px; width: 360px; }
+  .preview { height: 480px; background: repeating-linear-gradient(#fff, #fff 22px, #eef 22px, #eef 24px); }
+  .export button { font: inherit; padding: 8px 16px; }
+  .calibrator { position: relative; width: 320px; height: 160px; margin-top: 16px; }
+  .calibrator canvas { position: absolute; inset: 0; }
+  /* 🐛 drag-only-handle: grid-line handles you can only drag. No tabindex, no keys, no number box */
+  .line { position: absolute; top: 0; bottom: 0; width: 12px; margin-left: -6px; cursor: ew-resize; background: rgba(176, 58, 72, 0.4); }
+  .toast { position: fixed; right: 16px; bottom: 16px; background: #222; color: #fff; padding: 10px 14px; border-radius: 6px; }
+  /* 🐛 message-off-screen: a theme rule shoves the toast ~1,700px off the right edge. It still "is visible": it has a box */
+  html[data-theme="midnight"] .toast { transform: translateX(1700px); }
+</style>
+</head>
+<body>
+<button type="button" class="home" aria-label="Home">⌂ Home</button>
+<nav class="rail" role="tablist" aria-label="Planner pages">
+  <button type="button" role="tab" aria-selected="true">Monthly</button>
+  <button type="button" role="tab" aria-selected="false">Weekly</button>
+  <button type="button" role="tab" aria-selected="false">Daily</button>
+</nav>
+<main>
+  <div class="ribbon" id="ribbon">Home</div>
+  <br>
+  <h2 class="flourished">Calendar settings<svg viewBox="0 0 40 24" aria-hidden="true"><ellipse cx="20" cy="12" rx="18" ry="10" fill="#4a7d4a"/></svg></h2>
+
+  <section class="export" aria-label="Export">
+    <button type="button" id="export">Export</button>
+    <div class="preview" aria-hidden="true"></div>
+    <label for="paper">Paper size</label>
+    <select id="paper"><option>Letter</option><option>A4</option><option>A5</option></select>
+    <label><input type="checkbox" id="notes"> Include notes pages</label>
+    <label for="margin">Margin (mm)</label>
+    <input id="margin" type="number" value="5">
+  </section>
+
+  <div class="calibrator" id="calibrator">
+    <canvas width="320" height="160"></canvas>
+    <div class="line" style="left: 107px"></div>
+    <div class="line" style="left: 213px"></div>
+  </div>
+</main>
+<div class="toast" role="status">Exported ✓ planner.pdf</div>
+
+<script>
+  // a grid to calibrate against
+  const c = document.querySelector('canvas').getContext('2d')
+  c.strokeStyle = '#888'
+  for (let x = 0; x <= 320; x += 320 / 3) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, 160); c.stroke() }
+  for (let y = 0; y <= 160; y += 40) { c.beginPath(); c.moveTo(0, y); c.lineTo(320, y); c.stroke() }
+
+  // 🐛 drag-only-handle: pointer events only. A mouse can move these; a keyboard, a switch or a tremor can't
+  for (const line of document.querySelectorAll('.line')) {
+    line.addEventListener('pointerdown', (e) => {
+      line.setPointerCapture(e.pointerId)
+      const box = line.parentElement.getBoundingClientRect()
+      const move = (m) => { line.style.left = Math.max(0, Math.min(320, m.clientX - box.left)) + 'px' }
+      line.addEventListener('pointermove', move)
+      line.addEventListener('pointerup', () => line.removeEventListener('pointermove', move), { once: true })
+    })
+  }
+</script>
+</body>
+</html>
