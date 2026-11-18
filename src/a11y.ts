@@ -8,6 +8,10 @@
  *   targets   buttons and boxes at least 24×24 CSS px, or spaced so they can't be
  *             mis-hit (WCAG 2.5.8 and its spacing exception): one thumb, one hand, a tremor
  *   sliders   no value you can only set by dragging
+ *   handles   🔭 the same rule on a canvas or overlay (Lumen, from a desktop-app
+ *             test-drive): every drag handle (a move/grab/resize cursor, or
+ *             role="slider"/"separator") must be reachable by Tab and move with
+ *             the arrow keys, or have a number box beside it
  *   reflow    at 640px (a 1280px window at 200% zoom) and 375px (a phone):
  *             no sideways scrolling, every box on screen
  *   dark      on a dark theme, no glaring white text boxes
@@ -44,7 +48,7 @@ export interface A11yOptions extends CommonOptions {
   /** smallest acceptable target, CSS px (default 24) */
   minTarget?: number
   /** skip a sub-check */
-  skip?: ('names' | 'keyboard' | 'targets' | 'sliders' | 'reflow' | 'dark' | 'contrast' | 'honorific' | 'images' | 'axe')[]
+  skip?: ('names' | 'keyboard' | 'targets' | 'sliders' | 'handles' | 'reflow' | 'dark' | 'contrast' | 'honorific' | 'images' | 'axe')[]
   /** most Tab presses to try (default 200) */
   maxTabs?: number
 }
@@ -232,6 +236,81 @@ export async function a11ySmoke(page: Page, opts: A11yOptions = {}): Promise<Rep
     )
     for (const s of lonely) add('slider-only', s, 'range input with no number box', `The "${s}" setting can only be changed by dragging a slider. ${why('slider-only')}`)
     if (!lonely.length) report.passed++
+  }
+
+  // ── 🔭 drag handles on a canvas or overlay: the slider rule, carried over (Lumen) ──
+  if (!skip.has('handles')) {
+    type HandleState = { x: number; y: number; value: string }
+    const handles: { tag: string; name: string; kind: string; focusable: boolean; nudge: boolean }[] = await page.evaluate(() => {
+      const DRAG = /^(move|grab|grabbing|all-scroll|(?:[nsew]|ne|nw|se|sw|ew|ns|nesw|nwse|col|row)-resize)$/
+      const isHandle = (el: Element) => {
+        if (el instanceof HTMLInputElement) return false // a native range or a box: the slider rule above owns those
+        const role = el.getAttribute('role')
+        if (role === 'slider' || role === 'separator') return true
+        return DRAG.test(getComputedStyle(el).cursor)
+      }
+      const nudgeBox = 'input[type="number"], input[inputmode="numeric"], input[inputmode="decimal"]'
+      const out: { tag: string; name: string; kind: string; focusable: boolean; nudge: boolean }[] = []
+      let i = 0
+      for (const el of document.querySelectorAll<HTMLElement>('body *')) {
+        if (!isHandle(el)) continue
+        // the outermost handle only: its children inherit the cursor
+        if (el.parentElement && isHandle(el.parentElement) && getComputedStyle(el.parentElement).cursor === getComputedStyle(el).cursor) continue
+        const r = el.getBoundingClientRect()
+        if (r.width === 0 || r.height === 0 || getComputedStyle(el).visibility === 'hidden') continue
+        el.dataset.hedgehogHandle = String(i)
+        // a number box "beside it": named in aria-controls, or within three levels up (not the whole page)
+        let nudge = false
+        for (const id of (el.getAttribute('aria-controls') ?? '').split(/\s+/).filter(Boolean)) if (document.getElementById(id)?.matches(nudgeBox)) nudge = true
+        for (let a = el.parentElement, up = 0; a && up < 3 && !nudge; a = a.parentElement, up++) {
+          if (/^(BODY|HTML|MAIN|FORM)$/.test(a.tagName)) break
+          if (a.querySelector(nudgeBox)) nudge = true
+        }
+        const name = el.getAttribute('aria-label') || (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 30) || el.getAttribute('title') || el.id || ''
+        out.push({ tag: String(i++), name, kind: el.getAttribute('role') ?? getComputedStyle(el).cursor, focusable: el.tabIndex >= 0, nudge })
+      }
+      return out
+    })
+    if (!handles.length) report.skipped.push({ check: CHECK, reason: 'handles: no drag handles on this page (nothing with a move, grab or resize cursor, and no role="slider" or "separator")' })
+    const state = (tag: string): Promise<HandleState> =>
+      page.evaluate((tag) => {
+        const el = document.querySelector<HTMLElement>(`[data-hedgehog-handle="${tag}"]`)!
+        // where it sits INSIDE its container, so the page scrolling under an unhandled arrow key isn't "moving"
+        const r = el.getBoundingClientRect()
+        const p = (el.offsetParent ?? el.parentElement ?? document.body).getBoundingClientRect()
+        return { x: Math.round(r.left - p.left), y: Math.round(r.top - p.top), value: (el.getAttribute('aria-valuenow') ?? '') + '|' + (el.getAttribute('aria-valuetext') ?? '') }
+      }, tag)
+    const moved = (a: HandleState, b: HandleState) => a.x !== b.x || a.y !== b.y || a.value !== b.value
+    let ok = true
+    for (const h of handles) {
+      // named: "Crop edge". Unnamed: which kind, and which one in page order
+      const where = h.name ? `"${h.name}"` : `${h.kind} handle ${Number(h.tag) + 1}`
+      const The = h.name ? `The "${h.name}" handle` : `An unnamed ${h.kind} handle (number ${Number(h.tag) + 1} on the page)`
+      if (h.nudge) continue // a number box beside it nudges it
+      if (!h.focusable) {
+        ok = false
+        add('drag-only-handle', where, 'a drag handle Tab can\'t reach, with no number box beside it', `${The} can only be moved by dragging: Tab can't reach it, and there's no number box to nudge it with. ${why('drag-only-handle')}`)
+        continue
+      }
+      const loc = page.locator(`[data-hedgehog-handle="${h.tag}"]`)
+      await loc.focus()
+      const start = await state(h.tag)
+      let works = false
+      for (const [there, back] of [['ArrowRight', 'ArrowLeft'], ['ArrowDown', 'ArrowUp']] as const) {
+        await page.keyboard.press(there)
+        await page.waitForTimeout(50)
+        if (moved(start, await state(h.tag))) {
+          works = true
+          await page.keyboard.press(back) // put it back where it was
+          break
+        }
+      }
+      if (!works) {
+        ok = false
+        add('drag-only-handle', where, 'focusable, but the arrow keys don\'t move it', `${The} takes keyboard focus, but the arrow keys don't move it, and there's no number box to nudge it with. ${why('drag-only-handle')}`)
+      }
+    }
+    if (handles.length && ok) report.passed++
   }
 
   // ── reflow at 200% zoom and on a phone ──

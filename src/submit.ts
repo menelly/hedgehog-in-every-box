@@ -25,10 +25,23 @@ const loc = (page: Page, t: string | ((p: Page) => Locator)) => (typeof t === 's
 type RequestMatcher = string | RegExp | ((r: Request) => boolean)
 const matcher = (m: RequestMatcher) => (r: Request) => (typeof m === 'function' ? m(r) : typeof m === 'string' ? r.url().includes(m) : m.test(r.url()))
 
-/** 👀 every visible piece of text on the page right now, one entry per text node */
+/**
+ * 👀 every piece of text a person could see on the page right now, one entry per text node.
+ *
+ * 🔭 "Visible" has to mean SEEN, not "has a box" (Lumen's test-drive, Nov 2026: a theme rule pushed a
+ * fixed-position toast ~1,700px off-screen, and toBeVisible() passed it). Text below the fold still
+ * counts, because a person can scroll to it. Text no scrolling can ever reach doesn't: inside a
+ * position: fixed box that sits wholly outside the window, or parked off the left or top edge.
+ */
 export async function visibleTexts(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const out: string[] = []
+    const vw = document.documentElement.clientWidth
+    const vh = document.documentElement.clientHeight
+    const fixedBox = (el: Element) => {
+      for (let a: Element | null = el; a; a = a.parentElement) if (getComputedStyle(a).position === 'fixed') return a
+      return null
+    }
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
       const t = (n.textContent ?? '').replace(/\s+/g, ' ').trim()
@@ -37,6 +50,10 @@ export async function visibleTexts(page: Page): Promise<string[]> {
       const r = el.getBoundingClientRect()
       const cs = getComputedStyle(el)
       if (r.width === 0 || r.height === 0 || cs.visibility === 'hidden' || Number(cs.opacity) === 0) continue
+      // off the left or top edge: no scrollbar goes there
+      if (r.right + window.scrollX <= 0 || r.bottom + window.scrollY <= 0) continue
+      // in a fixed box that sits wholly outside the window: it doesn't scroll, so nobody will ever see it
+      if (fixedBox(el) && (r.right <= 0 || r.bottom <= 0 || r.left >= vw || r.top >= vh)) continue
       out.push(t)
     }
     return out
