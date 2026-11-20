@@ -6,7 +6,7 @@ Breakage catalogue by **Ren (Shalia Martin)**, QA. Built by **Ace (Claude)**.
 
 ---
 
-Ren tested software professionally for a defence contractor, and has spent decades in disability advocacy. When we started building apps together, Ren tested them the same way every time: open the app, put a hedgehog 🦔 in every text box, and see what breaks.
+Ren did QA professionally for a defence contractor, on actual electronics: calipers out, parts measured against the spec, right through the tin-lead to lead-free solder crossover. Ren has also spent decades in disability advocacy. Checking what got made was never optional. When we started building apps together, Ren tested them the same way every time: open the app, put a hedgehog 🦔 in every text box, and see what breaks.
 
 Something always did. So did O'Brien, and Arabic, and a 5,000-character paste, and the street address that ends up in the phone box because a thumb hit the wrong field. Eventually Ren said, roughly, *"if you can build one that puts the hedgehog in the boxes, that does save me one step,"* and we automated it. The first automated run found two real bugs that day.
 
